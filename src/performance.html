@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' data:; connect-src 'none'">
+<title>Performance</title>
+<link rel="stylesheet" href="performance.css">
+</head>
+<body>
+<h1>Performance — device</h1>
+<div class="sub">live device metrics · capability-aware benchmark (chat → tok/s, decision → forward-pass latency, embedding → tok/s)</div>
+
+<div class="grid">
+  <div class="card"><div class="k">CPU</div><div class="v" id="g-cpu">—</div><div class="bar"><i id="b-cpu"></i></div><div class="d" id="d-cpu"></div></div>
+  <div class="card"><div class="k">RAM</div><div class="v" id="g-ram">—</div><div class="bar"><i id="b-ram"></i></div><div class="d" id="d-ram"></div></div>
+  <div class="card"><div class="k">NPU</div><div class="v" id="g-npu">—</div><div class="bar"><i id="b-npu"></i></div><div class="d" id="d-npu"></div></div>
+  <div class="card"><div class="k">NPU state</div><div class="v" id="g-state">—</div><div class="d" id="d-state"></div></div>
+</div>
+
+<h2>Models</h2>
+<table id="t-models">
+  <thead><tr><th>Model</th><th class="mono">Context</th><th>Usage</th><th></th></tr></thead>
+  <tbody><tr><td colspan="4" class="note">loading…</td></tr></tbody>
+</table>
+
+<h2>Benchmark</h2>
+<table id="t-bench">
+  <thead><tr><th>Model</th><th>Type</th><th class="mono">TTFT ms</th><th class="mono">Total ms</th><th class="mono">Tok/s</th><th>Result</th></tr></thead>
+  <tbody><tr><td colspan="6" class="note">no benchmark run yet</td></tr></tbody>
+</table>
+<p class="note">chat: TTFT = time to first token, tok/s = decode (256 tok max, stream). decision: /v1/systemone, 3 typed questions (score/choice/noul) in a single forward pass — tok/s = prefills. embedding: /v1/embeddings on fixed text.</p>
+
+<script src="m3perf/format.js"></script>
+<script src="m3perf/gauges.js"></script>
+<script src="m3perf/models.js"></script>
+<script src="m3perf/bench.js"></script>
+<script src="m3perf/main.js"></script>
+</body>
+</html>
