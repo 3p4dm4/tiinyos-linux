@@ -22,20 +22,22 @@ echo "[1/4] official bundle"
 [[ -f bundle.exe ]] || curl -fL --retry 3 -o bundle.exe "$BUNDLE_URL"
 echo "[2/4] extract app.asar from the NSIS installer"
 rm -rf nsis; mkdir nsis
-7z x -onsis bundle.exe app-64.7z >/dev/null
-7z x -oapp nsis/app-64.7z 'resources/app.asar' 'resources/app.asar.unpacked/*' >/dev/null
-mkdir -p electron/resources
-mv -f app/resources/app.asar electron/resources/app.asar
-cp -a app/resources/app.asar.unpacked electron/resources/ 2>/dev/null || true
-rm -rf nsis app
+7z x -onsis bundle.exe '$PLUGINSDIR/app-64.7z' >/dev/null
+A7Z="$(find nsis -name 'app-64.7z' | head -1)"; [ -n "$A7Z" ] || { echo "app-64.7z not found inside the installer" >&2; exit 1; }
+7z x -oapp "$A7Z" 'resources/app.asar' 'resources/app.asar.unpacked/*' >/dev/null
+rm -rf nsis
 
 echo "[3/4] Electron 37.4.0 (linux-x64)"
 [[ -f electron.zip ]] || curl -fL --retry 3 -o electron.zip "$ELECTRON_URL"
-rm -rf electron-bin; mkdir electron-bin
+rm -rf electron electron-bin; mkdir electron-bin
 unzip -q electron.zip -d electron-bin
 mv electron-bin electron
 mv electron/electron electron/tiinyos 2>/dev/null || true
 chmod +x electron/tiinyos
+mkdir -p electron/resources
+mv -f app/resources/app.asar electron/resources/app.asar
+cp -a app/resources/app.asar.unpacked electron/resources/ 2>/dev/null || true
+rm -rf app
 
 echo "[4/4] launcher"
 cat > run.sh <<EOF
