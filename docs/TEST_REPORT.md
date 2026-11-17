@@ -34,7 +34,14 @@ Linux machine, exactly as a new community user would follow the README.
    - `uninstalled: pristine app.asar restored`; restored file is
      **byte-identical** to `app.asar.orig` (`cmp` clean), archive listable
      with `asar list`, and the pristine app **launches again** (window up).
-6. **Feature use over days on the production clone** (same artifacts):
+6. **Watchdog install path** (added 2026-11-17): `install.sh` copies
+   `tools/pcsvr-watchdog.sh` into the clone and writes the systemd units with
+   `ExecStart` sed'ed to the actual clone dir (verified with a non-default
+   `--clone-dir`); the uninstall step removes script and units (verified).
+   The watchdog itself ran live for a day on the production clone: both
+   branches observed firing — unresponsive-restart and
+   `leak: pid=… threads=1714 > 1500 -> restart`, app reconnecting ~45 s later.
+7. **Feature use over days on the production clone** (same artifacts):
    chat replies (~6 s on the device 35B model), Performance benchmark window
    with CSV export, embedded Control Panel from tray, device reconnect after
    shim restart.

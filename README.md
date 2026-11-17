@@ -58,6 +58,7 @@ for the step-by-step evidence.
 | `src/m3perf/` | benchmark engine (device probe, sampler, reporter) |
 | `src/m3_cp.js` | control-panel supervisor inside the app (spawn-if-needed, single window, guided navigation) |
 | `tools/patch_main.py` | the only edit to the minified bundle: tray menu + window injection (idempotent) |
+| `tools/pcsvr-watchdog.sh` | guard for the vendor thread leak — systemd user timer, see `docs/vendor-thread-leak.md` |
 
 The renderer pages of the bundle are separate files, so features are added as
 new files plus one surgical patch — no rewrite of vendor code.
