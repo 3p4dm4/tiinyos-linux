@@ -12,7 +12,7 @@ the official macOS/Windows app does not ship:
   [Tiiny Control Panel](https://github.com/0xStian/tiiny-control-panel) (MIT)
   embedded in the app window from the tray, with automatic sign-in.
 
-![Control Panel](docs/assets/control-panel.png)
+![Control Panel](docs/assets/control-panel-login.png)
 
 Everything is added by patching the Electron bundle locally. The official
 bundle is downloaded by you from Tiiny's public CDN — this repository ships no
@@ -20,6 +20,35 @@ proprietary binaries. Every change is reversible (`install.sh --uninstall`).
 
 **Not affiliated with Tiiny AI Lab Inc.** TiinyOS and the Tiiny Pocket are
 trademarks of their owner. This is a community port for personal use.
+
+## Screenshots
+
+| Dashboard (community Control Panel) | Model store | Performance |
+|---|---|---|
+| ![Dashboard](docs/assets/dashboard.png) | ![Models](docs/assets/models.png) | ![Performance](docs/assets/performance-window.png) |
+
+## Known issues & prevention
+
+Known failure modes of the vendor stack, with what stops them. The first and
+third are **prevented by the install itself**; the others are operational habits.
+
+| Issue | What you'd see | Prevention |
+|---|---|---|
+| `pcsvr` thread leak in the official shim (~600 threads/h) | fans at 100% after ~a day, whole system slow | **built-in**: `tools/pcsvr-watchdog.sh` systemd timer restarts the shim before the threshold ([RCA](docs/vendor-thread-leak.md)) |
+| Another client holds the device session | `/connect probe failed` in the log, app opens but does nothing | run **one** app instance per device (the vendor protocol has no multi-client session) |
+| File-descriptor exhaustion (`EMFILE`) in the shim on long uptime | random network errors, or the shim alive but port 60000 silent (device features stop) | **built-in**: the watchdog restarts the shim with `ulimit -n 65536` when the port goes silent; if you restart it manually, set the limit in the shell first |
+| Device hostname resolution breaks when the device gets a new IP | login hangs, device "offline" | re-apply the `/etc/hosts` line after reconnecting the device on a new network ([network.md](docs/network.md)) |
+
+Symptom-first fixes (with commands) in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
+## Agent store on Linux
+
+The store catalog is served by the device, and several desktop agents
+(Tiiny Meeting, opencode, HermesAgent, OpenClaw) publish **only Windows and
+macOS binaries** — the store has nothing to install them with on Linux. The web
+apps (n8n, Open WebUI, Dify, SillyTavern, …) run on the device and are
+unaffected. Full catalog, evidence and Linux workarounds:
+[docs/agent-store.md](docs/agent-store.md).
 
 ## Requirements
 
@@ -52,6 +81,11 @@ The full chain above (build → install → launch → uninstall → pristine
 restored and runnable) was verified end to end on Fedora 44 with a Tiiny
 Pocket on 2026-11-17: see [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md)
 for the step-by-step evidence.
+
+What this port covers: login, chat, model manager, the two extra features
+(Performance, Control Panel). Pages of the official app not exercised by this
+port may still have rough edges on Linux — open an issue with the log from
+`~/.local/tiinyos-clone/logs/`.
 
 ## How it works
 
