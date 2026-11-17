@@ -1,5 +1,7 @@
 # tiinyos-linux
 
+![Performance window](docs/assets/performance-window.png)
+
 Run the **Tiiny Pocket** desktop client (TiinyOS) on Linux and add two features
 the official macOS/Windows app does not ship:
 
@@ -9,6 +11,8 @@ the official macOS/Windows app does not ship:
 - **Control Panel** — the community
   [Tiiny Control Panel](https://github.com/0xStian/tiiny-control-panel) (MIT)
   embedded in the app window from the tray, with automatic sign-in.
+
+![Control Panel](docs/assets/control-panel.png)
 
 Everything is added by patching the Electron bundle locally. The official
 bundle is downloaded by you from Tiiny's public CDN — this repository ships no
