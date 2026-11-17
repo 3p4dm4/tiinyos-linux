@@ -34,7 +34,7 @@ jobs:
       - name: shell syntax gate (install/deploy scripts)
         run: |
           # Loop, non glob: `bash -n a.sh b.sh` controlla solo il primo file.
-          for f in install.sh build_clone.sh fetch_control_panel.sh tools/pcsvr-watchdog.sh; do bash -n "$f"; done
+          for f in install.sh build_clone.sh fetch_control_panel.sh tools/pcsvr-watchdog.sh tools/launch.sh; do bash -n "$f"; done
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: python compile (tools + tests)

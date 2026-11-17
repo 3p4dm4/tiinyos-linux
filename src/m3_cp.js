@@ -70,6 +70,10 @@ async function ensure() {
 
 let win = null;
 
+function sameOrigin(u) {
+  try { return new globalThis.URL(u).origin === new globalThis.URL(URL).origin; } catch { return false; }
+}
+
 async function open() {
   const { BrowserWindow } = require('electron');
   if (win && !win.isDestroyed()) { win.show(); win.focus(); return; }
@@ -90,6 +94,17 @@ async function open() {
   win.once('ready-to-show', () => win.show());
   win.webContents.setWindowOpenHandler(({ url }) => {
     console.log('[M3-cp] blocked window.open ->', url); return { action: 'deny' };
+  });
+  // The vendor bundle guards EVERY window (web-contents-created → zPt): a
+  // will-navigate to a non-vendor URL is cancelled and sent to shell.openExternal,
+  // so the panel's own location.replace('/') after sign-in popped the system
+  // browser (observed 17/11). Replace that guard on THIS window only: same-origin
+  // panel navigations are allowed, anything else is blocked and NOT opened outside.
+  win.webContents.removeAllListeners('will-navigate');
+  win.webContents.on('will-navigate', (e, url) => {
+    if (sameOrigin(url)) return;
+    e.preventDefault();
+    console.log('[M3-cp] blocked navigation ->', url);
   });
   win.webContents.on('did-fail-load', (e, code, desc, url) =>
     console.log(`[M3-cp] did-fail-load ${code} ${desc} ${url}`));
@@ -115,4 +130,4 @@ async function open() {
   win.on('closed', () => { win = null; });
 }
 
-module.exports = { open, ensure, up };
+module.exports = { open, ensure, up, sameOrigin };

@@ -64,6 +64,7 @@ unaffected. Full catalog, evidence and Linux workarounds:
 - Linux x86_64, a Tiiny Pocket device connected over USB-C
 - `curl`, `7z` (p7zip), `unzip`, `git`, Python ≥ 3.10, Node ≥ 18 (for `npx @electron/asar`)
 - the device USB network reachable (`docs/network.md`) and the /etc/hosts entries from it
+- `wmctrl` (keeps the Floating Ball out of the taskbar: Electron's own skipTaskbar is a no-op on Linux/X11), plus `zenity` / `notify-send` for the launcher's dialogs (present on GNOME)
 
 ## Install
 
@@ -73,8 +74,17 @@ git clone https://github.com/3p4dm4/tiinyos-linux && cd tiinyos-linux
 sudo nano /etc/hosts             # device name resolution (build_clone.sh prints the line)
 ./fetch_control_panel.sh         # community control panel -> ~/.local/share/...
 ./install.sh                     # feature pack + tray entries + desktop launchers
-~/.local/tiinyos-clone/run.sh
+~/.local/tiinyos-clone/launch.sh # same as the TiinyOS desktop icon
 ```
+
+The desktop icon runs `launch.sh`, which checks before starting: another
+TiinyOS install already open (they share `~/.config/TiinyOS`, so only one can
+run — it offers to close it), feature pack really inside `app.asar`, GNOME's
+window-frame helper alive (see Troubleshooting), device / Control Panel /
+watchdog / `wmctrl`; after starting it confirms a window is actually on
+screen. Problems arrive as desktop notifications; log in
+`~/.cache/tiinyos/launch.log`, app output in `~/.cache/tiinyos/app.log`.
+`run.sh` stays the bare launcher (no checks).
 
 Rollback: `./install.sh --uninstall` (restores the pristine bundle).
 

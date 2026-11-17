@@ -77,5 +77,20 @@ class TestPatchMain(PatchToolCase):
         self.assertIn("already patched", r2.stdout)
 
 
+class TestPatchSkipTaskbar(PatchToolCase):
+    tool = "patch_skip_taskbar.py"
+    anchor = ('if(console.log("[TrayPanel] ensureWindow: BrowserWindow created, id:",i.id)'
+              'return r.__isFloatingBallWindow=!0,'
+              'this.miniWindow.setAlwaysOnTop(!0,"floating"),')
+
+    def test_partial_anchor_is_drift(self):
+        # only one of the three windows present -> must refuse, not half-patch
+        path = self._fixture("x=1;return r.__isFloatingBallWindow=!0,y=2;")
+        r = run_tool(self.tool, path)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("drift", r.stdout + r.stderr)
+        self.assertNotIn("M3-SKIPTB", open(path).read())
+
+
 if __name__ == "__main__":
     unittest.main()
