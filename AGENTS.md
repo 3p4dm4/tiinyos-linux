@@ -47,6 +47,13 @@ Rules learned the hard way:
   accept **any** HTTP response (the shim answers 404 on `/devices_list` even
   when healthy; `curl -sf` treats that as death and restart-loops a healthy
   service).
+* **A rendered page is not a visible window.** `did-finish-load`, CDP
+  `capturePage` and DevTools screenshots all succeed even when the window
+  never appeared on screen. Prove visibility with the window manager
+  (`xwininfo -id <win>` → IsViewable, `wmctrl -l`) or a compositor screenshot
+  (`gnome-screenshot -f`). On GNOME/XWayland a crashed `mutter-x11-frames`
+  silently breaks every new decorated X11 window while Electron keeps
+  reporting `isVisible=true` (see TROUBLESHOOTING).
 
 ## Key files
 

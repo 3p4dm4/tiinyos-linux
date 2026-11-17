@@ -7,7 +7,7 @@ Linux machine, exactly as a new community user would follow the README.
 
 | item | value |
 |---|---|
-| OS | Fedora 44 (Work Edition), GNOME on Wayland/XWayland, x86_64 |
+| OS | SlimbookOS 24.0 (Ubuntu 24.04 base), GNOME 46 on Wayland/XWayland, x86_64 |
 | device | Tiiny Pocket, USB-C, reachable via `/etc/hosts` entries |
 | bundle | TiinyOS 1.0.3 (official CDN), Electron 37.4.0 linux-x64 |
 | date | 2026-11-16 → 2026-11-17 |
@@ -45,6 +45,17 @@ Linux machine, exactly as a new community user would follow the README.
    chat replies (~6 s on the device 35B model), Performance benchmark window
    with CSV export, embedded Control Panel from tray, device reconnect after
    shim restart.
+8. **Launcher + window-frame recovery** (added 2026-11-17 evening): the
+   desktop icon runs `<clone>/launch.sh`. Live on GNOME 46 / XWayland: icon →
+   pre-flight checks pass → app starts → tray Control Panel and Performance
+   confirmed on screen (`xwininfo` IsViewable, compositor screenshot), one
+   dock entry with the Tiiny logo, Floating Ball carries
+   `_NET_WM_STATE_SKIP_TASKBAR`, no stray browser tab. The recovery path was
+   exercised on a real failure: `mutter-x11-frames` had crashed hours earlier
+   (journal: "received an X Window System error"), every decorated X11 window
+   created after that point — TiinyOS or `xlogo` — stayed frame-waiting; the
+   launcher restarts the helper and the windows appear again
+   (see TROUBLESHOOTING).
 
 ## Known non-defects observed during testing
 
@@ -58,5 +69,5 @@ Linux machine, exactly as a new community user would follow the README.
 ## Verdict
 
 README install path is verified end to end: **clone → install → run (login and
-logged-in) → uninstall → pristine restored and runnable**. No step required
-anything outside the documented toolchain.
+logged-in) → launcher → uninstall → pristine restored and runnable**. No step
+required anything outside the documented toolchain.
