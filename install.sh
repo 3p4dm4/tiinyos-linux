@@ -39,7 +39,7 @@ if [[ $ACTION == uninstall ]]; then
   [[ -f "$RES/app.asar.orig" ]] || { say "nothing to uninstall (no app.asar.orig)"; exit 0; }
   run cp "$RES/app.asar.orig" "$RES/app.asar"
   run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
-  run rm -f "$CLONE/tools/pcsvr-watchdog.sh"
+  run rm -f "$CLONE/tools/pcsvr-watchdog.sh" "$CLONE/launch.sh"
   run rm -f "$HOME/.config/systemd/user/pcsvr-watchdog.service" "$HOME/.config/systemd/user/pcsvr-watchdog.timer"
   say "uninstalled: pristine app.asar restored. Restart the app."
   say "if you enabled the watchdog timer: systemctl --user disable --now pcsvr-watchdog.timer"
@@ -80,6 +80,7 @@ run cp -r "$HERE/src/m3perf" "$UNP/out/renderer/m3perf"
 run python3 "$HERE/tools/patch_main.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_ball_blur.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_ball_click.py" "$UNP/out/main/index.js"
+run python3 "$HERE/tools/patch_skip_taskbar.py" "$UNP/out/main/index.js"
 
 # 5. repack + restore unpacked flags
 run sh -c "$ASAR_BIN pack '$UNP' '$RES/app.asar.new'"
@@ -111,9 +112,11 @@ Type=Application
 Version=1.0
 Name=TiinyOS
 Comment=Tiiny Pocket desktop client (Linux)
-Exec=$CLONE/run.sh
+Exec=$CLONE/launch.sh
 Path=$CLONE
-Icon=$CLONE/electron/resources/app-unpacked/out/renderer/tiiny-logo.png
+Icon=$CLONE/electron/resources/app-unpacked/out/main/tiiny-logo.png
+StartupWMClass=tiinyos
+StartupNotify=false
 Terminal=false
 Categories=Utility;
 EOF
@@ -136,6 +139,7 @@ fi
 # 7b. pcsvr watchdog (vendor thread-leak guard, see docs/vendor-thread-leak.md)
 run mkdir -p "$CLONE/tools"
 run cp "$HERE/tools/pcsvr-watchdog.sh" "$CLONE/tools/pcsvr-watchdog.sh"
+run install -m 0755 "$HERE/tools/launch.sh" "$CLONE/launch.sh"
 run chmod +x "$CLONE/tools/pcsvr-watchdog.sh"
 run mkdir -p "$HOME/.config/systemd/user"
 # ExecStart must point at THIS clone, wherever the user put it
