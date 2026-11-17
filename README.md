@@ -97,7 +97,7 @@ AI agents working on this repo: start from [AGENTS.md](AGENTS.md).
 ## Tested
 
 The full chain above (build → install → launch → uninstall → pristine
-restored and runnable) was verified end to end on Fedora 44 with a Tiiny
+restored and runnable) was verified end to end on SlimbookOS 24.0 with a Tiiny
 Pocket on 2026-11-17: see [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md)
 for the step-by-step evidence.
 
