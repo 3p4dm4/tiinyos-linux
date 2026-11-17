@@ -1,0 +1,50 @@
+# Quality gate per tiinyos-linux (pattern AI_Academy-hub, ridotto al perimetro).
+#
+# Phase 1: OBSERVATION (not required). A regime: branch protection su main
+# con questo check REQUIRED + enforce_admins — nessuna eccezione.
+#
+# La superficie a rischio di questo repo non è l'app (è vendor): sono le
+# PATCH sugli anchor del bundle. Se il bundle TiinyOS cambia upstream gli
+# anchor spariscono e i patch tool escono con "bundle drifted"; qui i test
+# funzionali lo accorgono prima che un utente lo trovi con install.sh rotto.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+    # ready_for_review non è un tipo default: senza, il "ready" di una draft
+    # non avvierebbe il run completo.
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: syntax · py-compile · patch-tools · secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: where this gate ran
+        run: echo "Runner: ${RUNNER_NAME} (${RUNNER_ENVIRONMENT})" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v4
+      - name: shell syntax gate (install/deploy scripts)
+        run: |
+          # Loop, non glob: `bash -n a.sh b.sh` controlla solo il primo file.
+          for f in install.sh build_clone.sh fetch_control_panel.sh tools/pcsvr-watchdog.sh; do bash -n "$f"; done
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: python compile (tools + tests)
+        run: python3 -m py_compile tools/*.py tests/*.py
+      - name: patch tools functional tests (fixture, no vendor bundle)
+        run: python3 -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: JS syntax gate (src/m3_*)
+        run: |
+          for f in src/*.js; do node --check "$f"; done
+      - name: secrets scan (fail-closed)
+        run: bash tools/check_secrets.sh
