@@ -1,0 +1,11 @@
+[Unit]
+Description=TiinyOS pcsvr shim watchdog (thread-leak guard)
+
+[Service]
+Type=oneshot
+# The shim must outlive the watchdog unit: the default KillMode would sweep the
+# nohup'd child when ExecStart exits (observed at bring-up: shim died with the
+# unit every tick).
+KillMode=process
+LimitNOFILE=65536
+ExecStart=%h/.local/tiinyos-clone/tools/pcsvr-watchdog.sh

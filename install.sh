@@ -39,7 +39,10 @@ if [[ $ACTION == uninstall ]]; then
   [[ -f "$RES/app.asar.orig" ]] || { say "nothing to uninstall (no app.asar.orig)"; exit 0; }
   run cp "$RES/app.asar.orig" "$RES/app.asar"
   run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  run rm -f "$CLONE/tools/pcsvr-watchdog.sh"
+  run rm -f "$HOME/.config/systemd/user/pcsvr-watchdog.service" "$HOME/.config/systemd/user/pcsvr-watchdog.timer"
   say "uninstalled: pristine app.asar restored. Restart the app."
+  say "if you enabled the watchdog timer: systemctl --user disable --now pcsvr-watchdog.timer"
   exit 0
 fi
 
@@ -82,7 +85,9 @@ run python3 "$HERE/tools/fix_unpacked.py" "$RES/app.asar.new" "$RES/app.asar.unp
 run mv "$RES/app.asar.new.fixed" "$RES/app.asar.new"
 run mv "$RES/app.asar.new" "$RES/app.asar"
 
-# 6. verify the header actually contains the feature files
+# 6. verify the header actually contains the feature files (skipped in dry-run:
+#    nothing was repacked, the on-disk asar is still the pristine one)
+if [[ $DRY == 0 ]]; then
 python3 - "$RES/app.asar" <<'EOF'
 import json, sys
 d = open(sys.argv[1], "rb").read()
@@ -93,6 +98,7 @@ for f in ("performance.html", "m3_performance.js", "m3_cp.js"):
 assert "integrity" in h, "no integrity block"
 print("[tiinyos-linux] verify: header OK")
 EOF
+fi
 
 # 7. desktop entries (app + control panel launcher)
 if [[ $DRY == 0 ]]; then
@@ -125,5 +131,21 @@ EOF
   chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
 fi
 
+# 7b. pcsvr watchdog (vendor thread-leak guard, see docs/vendor-thread-leak.md)
+run mkdir -p "$CLONE/tools"
+run cp "$HERE/tools/pcsvr-watchdog.sh" "$CLONE/tools/pcsvr-watchdog.sh"
+run chmod +x "$CLONE/tools/pcsvr-watchdog.sh"
+run mkdir -p "$HOME/.config/systemd/user"
+# ExecStart must point at THIS clone, wherever the user put it
+if [[ $DRY == 1 ]]; then
+  echo "DRY: sed ExecStart -> $CLONE/tools/pcsvr-watchdog.sh into ~/.config/systemd/user/"
+else
+  sed "s#%h/.local/tiinyos-clone/tools/pcsvr-watchdog.sh#$CLONE/tools/pcsvr-watchdog.sh#" \
+    "$HERE/tools/systemd/pcsvr-watchdog.service" > "$HOME/.config/systemd/user/pcsvr-watchdog.service"
+  cp "$HERE/tools/systemd/pcsvr-watchdog.timer" "$HOME/.config/systemd/user/"
+fi
+
 say "done. Restart the app ($CLONE/run.sh)."
+say "recommended: guard the vendor thread leak (docs/vendor-thread-leak.md):"
+say "  systemctl --user daemon-reload && systemctl --user enable --now pcsvr-watchdog.timer"
 say "rollback anytime: ./install.sh --uninstall"

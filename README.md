@@ -36,6 +36,12 @@ sudo nano /etc/hosts             # device name resolution (build_clone.sh prints
 
 Rollback: `./install.sh --uninstall` (restores the pristine bundle).
 
+The official `pcsvr` shim has a thread leak (fans max out after a day or so);
+`install.sh` ships a guard for it — enable the timer as instructed at the end
+of the install ([details](docs/vendor-thread-leak.md)).
+Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+AI agents working on this repo: start from [AGENTS.md](AGENTS.md).
+
 ## Tested
 
 The full chain above (build → install → launch → uninstall → pristine
