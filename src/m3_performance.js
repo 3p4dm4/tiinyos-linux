@@ -41,6 +41,16 @@ function wire() {
   });
   ipcMain.handle('m3:sysstatus', () => jget(`${P8800}/api/v1/sys/status`));
   ipcMain.handle('m3:npustatus', () => jget(`${P8800}/api/v1/npu/status`));
+  ipcMain.handle('m3:store', async () => {
+    const m = await jget(`${BASE}/api/v1/models/`);
+    return (m.data || []).map(x => ({
+      id: x.id || x.model_id, name: x.display_name || x.name,
+      type: x.type || '', status: x.status || '', size: x.total_size || 0,
+      params: x.params || '', context: x.context_window || x.context,
+      capabilities: x.capabilities || [], supports_chat: !!x.supports_chat,
+      supports_vision: !!x.supports_vision,
+    }));
+  });
   ipcMain.handle('m3:benchmark', (_e, model) => runBenchmark(String(model || '')));
 }
 
