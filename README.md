@@ -23,6 +23,14 @@ trademarks of their owner. This is a community port for personal use.
 
 ## Screenshots
 
+The TiinyOS app itself:
+
+| Agent Store | Model Store | Dashboard |
+|---|---|---|
+| ![Agent Store](docs/assets/app-agent-store.png) | ![Model Store](docs/assets/app-model-store.png) | ![Dashboard](docs/assets/app-dashboard.png) |
+
+The community Control Panel and the Performance feature:
+
 | Dashboard (community Control Panel) | Model store | Performance |
 |---|---|---|
 | ![Dashboard](docs/assets/dashboard.png) | ![Models](docs/assets/models.png) | ![Performance](docs/assets/performance-window.png) |
@@ -37,6 +45,7 @@ third are **prevented by the install itself**; the others are operational habits
 | `pcsvr` thread leak in the official shim (~600 threads/h) | fans at 100% after ~a day, whole system slow | **built-in**: `tools/pcsvr-watchdog.sh` systemd timer restarts the shim before the threshold ([RCA](docs/vendor-thread-leak.md)) |
 | Another client holds the device session | `/connect probe failed` in the log, app opens but does nothing | run **one** app instance per device (the vendor protocol has no multi-client session) |
 | File-descriptor exhaustion (`EMFILE`) in the shim on long uptime | random network errors, or the shim alive but port 60000 silent (device features stop) | **built-in**: the watchdog restarts the shim with `ulimit -n 65536` when the port goes silent; if you restart it manually, set the limit in the shell first |
+| Floating Ball click / right-click does nothing (Linux) | the panel flashes or nothing visible | **fixed here**: `tools/patch_ball_click.py` (the ball window was click-through — `forward:true` is macOS/Windows-only) + `tools/patch_ball_blur.py` (X11 `show()` doesn't take focus, the blur handler hid the panel; the bundle's 600 ms grace was macOS-only) |
 | Device hostname resolution breaks when the device gets a new IP | login hangs, device "offline" | re-apply the `/etc/hosts` line after reconnecting the device on a new network ([network.md](docs/network.md)) |
 
 Symptom-first fixes (with commands) in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
@@ -95,11 +104,13 @@ port may still have rough edges on Linux — open an issue with the log from
 | `install.sh` | unpacks the pristine `app.asar`, drops the feature files in, applies a marker-based patch to the minified main bundle, repacks with correct unpacked/integrity flags, verifies the header |
 | `src/m3perf/` | benchmark engine (device probe, sampler, reporter) |
 | `src/m3_cp.js` | control-panel supervisor inside the app (spawn-if-needed, single window, guided navigation) |
-| `tools/patch_main.py` | the only edit to the minified bundle: tray menu + window injection (idempotent) |
+| `tools/patch_main.py` | minified-bundle patch: tray menu + window injection (idempotent) |
+| `tools/patch_ball_blur.py` | Linux fix: keep the Floating Ball panel open (post-show blur grace was macOS-only) |
+| `tools/patch_ball_click.py` | Linux fix: Floating Ball receives real clicks (was click-through on X11) |
 | `tools/pcsvr-watchdog.sh` | guard for the vendor thread leak — systemd user timer, see `docs/vendor-thread-leak.md` |
 
 The renderer pages of the bundle are separate files, so features are added as
-new files plus one surgical patch — no rewrite of vendor code.
+new files plus a few surgical, idempotent patches — no rewrite of vendor code.
 
 ## Known limitations
 

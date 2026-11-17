@@ -78,6 +78,8 @@ run cp -r "$HERE/src/m3perf" "$UNP/out/renderer/m3perf"
 
 # 4. surgical patch of the minified main bundle (idempotent, markers-based)
 run python3 "$HERE/tools/patch_main.py" "$UNP/out/main/index.js"
+run python3 "$HERE/tools/patch_ball_blur.py" "$UNP/out/main/index.js"
+run python3 "$HERE/tools/patch_ball_click.py" "$UNP/out/main/index.js"
 
 # 5. repack + restore unpacked flags
 run sh -c "$ASAR_BIN pack '$UNP' '$RES/app.asar.new'"
