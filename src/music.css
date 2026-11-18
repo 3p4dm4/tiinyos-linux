@@ -72,3 +72,10 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 button.ghost:hover{border-color:var(--accent)}
 .ref-row{display:flex;gap:8px;align-items:center}
 .takes-card .lbl{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+
+/* contrast fixes from ui-review (axe 4.14): white on accent = 5.6:1,
+   hints/help at 72% of --text ≈ 7:1 (was --muted 3.1:1) */
+:root{--on-accent:#ffffff}
+button.write{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+button.write:hover{filter:brightness(1.1)}
+.hint,.help{color:var(--text);opacity:.72}

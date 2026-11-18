@@ -19,7 +19,7 @@
   <div class="card statusbar" id="status"><span class="note">checking device…</span></div>
 </header>
 
-<div class="lab-grid">
+<main class="lab-grid">
   <!-- composer side -->
   <section class="lab-col">
     <div class="card step">
@@ -29,7 +29,7 @@
         <p class="help">Plain words, any language — mood, instruments, rhythm, voices. The writer model turns this into the caption and lyrics the composer expects.</p>
         <textarea id="idea" rows="3" placeholder="e.g. nordic song, wordless female vocalise, drums slowly building to a wall of sound"></textarea>
         <div class="step-act">
-          <button type="button" id="btn-write">Write prompt</button>
+          <button type="button" id="btn-write" class="write">Write prompt</button>
           <span id="writer-note" class="note"></span>
         </div>
       </div>
@@ -81,7 +81,7 @@
       <div id="takes-list" class="empty">Nothing generated yet in this session.</div>
     </div>
   </aside>
-</div>
+</main>
 
 <script src="m3music/status.js"></script>
 <script src="m3music/studio.js"></script>
