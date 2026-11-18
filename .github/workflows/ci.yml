@@ -1,19 +1,19 @@
-# Quality gate per tiinyos-linux (pattern AI_Academy-hub, ridotto al perimetro).
+# Quality gate for tiinyos-linux (AI_Academy-hub pattern, reduced to the perimeter).
 #
-# Phase 1: OBSERVATION (not required). A regime: branch protection su main
-# con questo check REQUIRED + enforce_admins — nessuna eccezione.
+# Phase 1: OBSERVATION (not required). Regime A: branch protection on main
+# with this check REQUIRED + enforce_admins — no exceptions.
 #
-# La superficie a rischio di questo repo non è l'app (è vendor): sono le
-# PATCH sugli anchor del bundle. Se il bundle TiinyOS cambia upstream gli
-# anchor spariscono e i patch tool escono con "bundle drifted"; qui i test
-# funzionali lo accorgono prima che un utente lo trovi con install.sh rotto.
+# The at-risk surface of this repo is not the app (it is vendor): it is the
+# PATCHES on the bundle anchors. If the upstream TiinyOS bundle changes, the
+# anchors disappear and the patch tools exit with "bundle drifted"; the
+# functional tests here catch it before a user finds a broken install.sh.
 name: ci
 
 on:
   pull_request:
     branches: [main]
-    # ready_for_review non è un tipo default: senza, il "ready" di una draft
-    # non avvierebbe il run completo.
+    # ready_for_review is not a default type: without it, marking a draft
+    # "ready" would not start the full run.
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: shell syntax gate (install/deploy scripts)
         run: |
-          # Loop, non glob: `bash -n a.sh b.sh` controlla solo il primo file.
+          # Loop, not glob: `bash -n a.sh b.sh` only checks the first file.
           for f in install.sh update.sh build_clone.sh fetch_control_panel.sh tools/pcsvr-watchdog.sh tools/launch.sh; do bash -n "$f"; done
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
