@@ -31,6 +31,9 @@ echo "<device-ip>  api.tiiny  models.api.tiiny" | sudo tee -a /etc/hosts
 
 # 4. Apply the feature pack to the clone
 cd ~/.local/tiinyos-clone && ./install.sh
+# install.sh writes the shared desktop icons only for a clone at the default
+# location; a --clone-dir elsewhere (e.g. a throwaway test clone) leaves them
+# alone — pass --desktop to force.
 
 # 5. Launch
 ./launch.sh          # or the "TiinyOS" desktop icon

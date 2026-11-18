@@ -7,7 +7,7 @@
 #   * Tray menu entries for both
 #
 # Usage:
-#   ./install.sh [--clone-dir DIR] [--dry-run]
+#   ./install.sh [--clone-dir DIR] [--dry-run] [--desktop]
 #   ./install.sh --uninstall [--clone-dir DIR]
 #
 # The pristine bundle is never touched: the first run saves app.asar.orig and
@@ -17,11 +17,12 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLONE="${TIINYOS_CLONE_DIR:-$HOME/.local/tiinyos-clone}"
-DRY=0; ACTION=install
+DRY=0; ACTION=install; DESKTOP=auto
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clone-dir) CLONE="$2"; shift 2 ;;
     --dry-run)   DRY=1; shift ;;
+    --desktop)   DESKTOP=force; shift ;;
     --uninstall) ACTION=uninstall; shift ;;
     -h|--help)   sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
@@ -32,13 +33,22 @@ RES="$CLONE/electron/resources"
 UNP="$RES/app-unpacked"
 run() { if [[ $DRY == 1 ]]; then echo "DRY: $*"; else "$@"; fi }
 
+# Desktop entries are SHARED (one per user): they belong to the default install
+# location. A non-default --clone-dir is a disposable/test clone and must not
+# write or delete them (real incident: a /tmp test clone hijacked
+# ~/Desktop/TiinyOS.desktop and the icon died with the tmpfs). --desktop forces.
+DESKTOP_SHARED=0
+[[ "$CLONE" == "$HOME/.local/tiinyos-clone" || "$DESKTOP" == force ]] && DESKTOP_SHARED=1
+
 need() { command -v "$1" >/dev/null 2>&1 || { echo "missing dependency: $1" >&2; exit 1; }; }
 say() { printf '[tiinyos-linux] %s\n' "$*"; }
 
 if [[ $ACTION == uninstall ]]; then
   [[ -f "$RES/app.asar.orig" ]] || { say "nothing to uninstall (no app.asar.orig)"; exit 0; }
   run cp "$RES/app.asar.orig" "$RES/app.asar"
-  run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  if [[ $DESKTOP_SHARED == 1 ]]; then
+    run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  fi
   run rm -f "$CLONE/tools/pcsvr-watchdog.sh" "$CLONE/launch.sh"
   run rm -f "$HOME/.config/systemd/user/pcsvr-watchdog.service" "$HOME/.config/systemd/user/pcsvr-watchdog.timer"
   say "uninstalled: pristine app.asar restored. Restart the app."
@@ -105,7 +115,9 @@ EOF
 fi
 
 # 7. desktop entries (app + control panel launcher)
-if [[ $DRY == 0 ]]; then
+if [[ $DESKTOP_SHARED == 0 ]]; then
+  say "skip: desktop entries (clone is not $HOME/.local/tiinyos-clone; pass --desktop to force)"
+elif [[ $DRY == 0 ]]; then
   mkdir -p "$HOME/.local/share/applications" "$HOME/Desktop"
   cat > "$HOME/.local/share/applications/tiinyos.desktop" <<EOF
 [Desktop Entry]
