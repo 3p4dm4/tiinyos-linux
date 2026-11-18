@@ -296,5 +296,12 @@ function wire() {
   ipcMain.handle('m3:music:job', () => job ? { ...job } : null);
 }
 
-module.exports = { open, wire };
+module.exports = { open, wire, attach };
 wire();
+
+// standalone/ opens its own window on top of these IPC handlers: progress
+// events must reach it, so let it register as the module window.
+function attach(w) {
+  win = w;
+  win.on('closed', () => { win = null; });
+}

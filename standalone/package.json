@@ -1,0 +1,6 @@
+{
+  "name": "tiiny-music-lab-standalone",
+  "version": "0.1.0",
+  "description": "Music Lab as a standalone Electron app — same source as the TiinyOS feature pack",
+  "main": "main.js"
+}
