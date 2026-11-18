@@ -1,0 +1,20 @@
+/* M3 — Music Studio specifics (base tokens/classes come from performance.css). */
+.cols{display:flex;gap:16px;align-items:flex-start}
+.col{flex:1;min-width:0}
+textarea{width:100%;box-sizing:border-box;background:var(--panel);color:var(--text);
+  border:1px solid var(--line);border-radius:8px;padding:8px;font:12px/1.45 ui-monospace,monospace;resize:vertical}
+select,input[type=number]{background:var(--panel);color:var(--text);border:1px solid var(--line);
+  border-radius:6px;padding:5px 8px;font-size:12px}
+.row{display:flex;gap:14px;align-items:center;margin-top:12px}
+.row label{font-size:12px;display:flex;gap:6px;align-items:center}
+button.primary{background:#2ea043;color:#04160a;font-weight:700}
+.hidden{display:none}
+.statusbar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.dot.busy{background:#e8912d;animation:pulse 1.2s ease-in-out infinite}
+.dot.idle{background:#2ea043}
+.dot.down{background:#d33}
+@keyframes pulse{50%{opacity:.35}}
+.take{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+.take audio{width:100%;height:34px}
+.take .meta{font-size:11px;opacity:.75;margin-top:4px;word-break:break-all}

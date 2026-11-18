@@ -16,8 +16,17 @@ PATCH = (',{type:"separator"},{label:"Performance",'
          '{label:t.quit,click:()=>this.quit()}].filter(Boolean)')
 
 s = open(F).read()
-if "m3_cp" in s:  # idempotency marker: the require() path, not the label
-    print("patch_main: already patched (cp)")
+if "m3_music" in s:  # idempotency marker: the require() path, not the label
+    print("patch_main: already patched (music)")
+elif "m3_cp" in s:  # extend the cp patch with the Music Studio item
+    cp_end = 'require("./m3_cp").open()}catch(e){console.error("[M3] cp:",e)}}}'
+    if s.count(cp_end) == 1:
+        open(F, "w").write(s.replace(cp_end, cp_end +
+            ',{label:"Music Studio",click:()=>{try{require("./m3_music").open()}'
+            'catch(e){console.error("[M3] music:",e)}}}'))
+        print("patch_main: applied (music appended to cp patch)")
+    else:
+        sys.exit("patch_main: cp patch marker not unique — review manually")
 elif "m3_performance" in s:
     # S1 patch present: extend it with the Control Panel item
     s1_end = 'require("./m3_performance").open()}catch(e){console.error("[M3] performance:",e)}}}'
