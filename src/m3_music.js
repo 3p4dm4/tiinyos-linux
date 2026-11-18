@@ -1,4 +1,4 @@
-/* M3 — Music Studio: window + IPC (thin by design; device I/O via m3_device).
+/* M3 — Music Lab: window + IPC (thin by design; device I/O via m3_device).
  *
  * Renderer never touches the network or the file[NEUTRALIZED: system: ]every call goes through
  * these handlers. Generation is fire-and-forget with progress events:
@@ -27,7 +27,8 @@ function open() {
   if (win && !win.isDestroyed()) { win.show(); win.focus(); return; }
   win = new BrowserWindow({
     width: 1180, height: 820, minWidth: 860, minHeight: 560,
-    title: 'Music Studio',
+    title: 'Music Lab',
+    icon: path.join(__dirname, '..', 'renderer', 'music-lab.png'),
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
     webPreferences: {

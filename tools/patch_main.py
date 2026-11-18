@@ -18,11 +18,11 @@ PATCH = (',{type:"separator"},{label:"Performance",'
 s = open(F).read()
 if "m3_music" in s:  # idempotency marker: the require() path, not the label
     print("patch_main: already patched (music)")
-elif "m3_cp" in s:  # extend the cp patch with the Music Studio item
+elif "m3_cp" in s:  # extend the cp patch with the Music Lab item
     cp_end = 'require("./m3_cp").open()}catch(e){console.error("[M3] cp:",e)}}}'
     if s.count(cp_end) == 1:
         open(F, "w").write(s.replace(cp_end, cp_end +
-            ',{label:"Music Studio",click:()=>{try{require("./m3_music").open()}'
+            ',{label:"Music Lab",click:()=>{try{require("./m3_music").open()}'
             'catch(e){console.error("[M3] music:",e)}}}'))
         print("patch_main: applied (music appended to cp patch)")
     else:

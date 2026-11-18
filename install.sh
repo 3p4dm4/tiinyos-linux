@@ -72,7 +72,7 @@ run sh -c "$ASAR_BIN extract '$TMP/app.asar' '$UNP'"
 # 3. feature files
 run cp "$HERE"/src/m3_performance.js "$HERE"/src/m3_device.js "$HERE"/src/m3_bench.js \
        "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$HERE"/src/m3_music.js "$HERE"/src/m3_activity.js "$UNP/out/main/"
-run cp "$HERE"/src/performance.html "$HERE"/src/performance.css "$HERE"/src/music.html "$HERE"/src/music.css "$UNP/out/renderer/"
+run cp "$HERE"/src/performance.html "$HERE"/src/performance.css "$HERE"/src/music.html "$HERE"/src/music.css "$HERE"/src/music-lab.png "$HERE"/src/music-lab.svg "$UNP/out/renderer/"
 run rm -rf "$UNP/out/renderer/m3perf" "$UNP/out/renderer/m3music"
 run cp -r "$HERE/src/m3perf" "$UNP/out/renderer/m3perf"
 run cp -r "$HERE/src/m3music" "$UNP/out/renderer/m3music"
