@@ -94,6 +94,22 @@ of the install ([details](docs/vendor-thread-leak.md)).
 Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 AI agents working on this repo: start from [AGENTS.md](AGENTS.md).
 
+## Updating
+
+When new work lands in this repo, update an installed clone with one command:
+
+```bash
+cd <path-to>/tiinyos-linux
+./update.sh                 # git pull + re-apply install.sh + restart if running
+./update.sh --dry-run       # show what would change (fetch only)
+./update.sh --no-restart    # update files, keep the app as-is
+```
+
+It refuses to run on a dirty checkout or on a clone that was never installed,
+and it does nothing when you are already up to date. `install.sh` always
+regenerates `app.asar` from the pristine `app.asar.orig`, so re-applying is
+idempotent. If you prefer doing it by hand: `git pull && ./install.sh`.
+
 ## Tested
 
 The full chain above (build → install → launch → uninstall → pristine
