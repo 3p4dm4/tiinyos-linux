@@ -6,7 +6,7 @@ keeps its websocket open. Left alone it maxes out your fans. The repo ships a
 user-level watchdog (`tools/pcsvr-watchdog.sh` + systemd timer) that restarts
 the shim invisibly before it gets dangerous.
 
-## Symptoms observed (2026-11-16, Fedora 44, TiinyOS 1.0.3)
+## Symptoms observed (2026-11-16, SlimbookOS 24.0 (Ubuntu 24.04 base), TiinyOS 1.0.3)
 
 * load average `7091` on 20 cores, CPU ~10000%, package ~79 °C, fans 5600 RPM
 * one process (`python3 ./pcsvr -f pcsvr-api.yaml`, started by the app from
