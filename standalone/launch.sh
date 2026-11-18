@@ -33,8 +33,11 @@ if [[ ! -e "$FARM/version" ]] || ! cmp -s "$FARM/version" "$SRC/version" 2>/dev/
   ln -s "$HERE" "$FARM/resources/app"
 fi
 
-# --disable-gpu: same VSync fallback the main launcher uses (unstable on a few GPUs)
 # --no-sandbox: the clone's chrome-sandbox is npm-downloaded (owner is the user,
 #   not root) so Chromium refuses to start with it; the vendor app disables the
 #   sandbox in its own code — this launcher does it explicitly.
-exec "$FARM/tiinyos" --disable-gpu --no-sandbox "$@"
+# NOTE: no --disable-gpu by default — on this hardware (verified 18/11 via
+# gnome-screenshot pixel stats) software rendering paints the window BLACK on
+# screen while the page itself is fine. The main app launcher runs with GPU on.
+# If your GPU crashes Electron at startup, opt in:  MUSIC_LAB_FLAGS=--disable-gpu ./launch.sh
+exec "$FARM/tiinyos" ${MUSIC_LAB_FLAGS:-} --no-sandbox "$@"
