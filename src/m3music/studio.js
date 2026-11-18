@@ -1,10 +1,45 @@
-/* M3 music — studio: writer ✨, form, generation queue, takes player. */
+/* M3 music — studio: workflow stepper, writer ✨, generation with phases, takes + waveforms. */
 window.M3 = window.M3 || {};
 M3.studio = (function () {
   const $ = id => document.getElementById(id);
   const esc = M3.esc;
   let takeNo = 0;
 
+  /* ---------- workflow stepper ---------- */
+  // Soft workflow: nothing is locked, the stepper just shows where you are.
+  function syncFlow() {
+    const idea = $('idea').value.trim();
+    const caption = $('caption').value.trim();
+    const generating = !!tick;
+    const states = [
+      idea ? 'done' : 'active',
+      caption ? 'done' : (idea ? 'active' : ''),
+      generating ? 'active' : (caption ? 'active' : ''),
+      takeNo ? 'done' : '',
+    ];
+    if (takeNo && !generating && caption) states[2] = 'done';
+    document.querySelectorAll('#flow li').forEach((li, i) => {
+      li.className = states[i] || '';
+    });
+    // step ② chip: prompt readiness
+    const pc = $('prompt-chip');
+    if (caption) { pc.textContent = 'prompt ready'; pc.className = 'chip ok'; }
+    else if (idea) { pc.textContent = 'waiting for step 1'; pc.className = 'chip'; }
+    else { pc.textContent = 'waiting for step 1'; pc.className = 'chip'; }
+  }
+  M3.syncFlow = syncFlow;
+
+  function wireFlowClicks() {
+    const targets = { 1: 'idea', 2: 'caption', 3: 'btn-gen', 4: 'takes-list' };
+    document.querySelectorAll('#flow li').forEach(li => {
+      li.addEventListener('click', () => {
+        const el = $(targets[li.dataset.s]);
+        if (el) { el.scrollIntoView({ block: 'center' }); if (el.focus) el.focus(); }
+      });
+    });
+  }
+
+  /* ---------- step 1: writer ---------- */
   async function write() {
     const idea = $('idea').value.trim();
     if (!idea) return;
@@ -18,7 +53,20 @@ M3.studio = (function () {
       $('writer-note').textContent = `ok — ${M3.short(r.writer)}`;
     } catch (e) {
       $('writer-note').textContent = `error: ${e.message}`;
-    } finally { $('btn-write').disabled = false; }
+    } finally { $('btn-write').disabled = false; syncFlow(); }
+  }
+
+  /* ---------- step 3: generation ---------- */
+  let cfg = null;
+  let takeIdx = 0, takeTotal = 1, genStart = 0, lastP = null, tick = null;
+
+  const PHASE_ORDER = ['queued', 'loading', 'generating', 'saving', 'done'];
+  function renderPhases(p) {
+    const idx = PHASE_ORDER.indexOf(p.phase);
+    document.querySelectorAll('#phases li').forEach(li => {
+      const i = PHASE_ORDER.indexOf(li.dataset.p);
+      li.className = i === idx ? 'on' : (i < idx ? 'past' : '');
+    });
   }
 
   async function generate() {
@@ -30,15 +78,11 @@ M3.studio = (function () {
       setNote('reading reference…');
       refBase64 = await window.m3.invoke('m3:music:refb64', refPath);
     }
-    const c = { caption, lyrics: $('lyrics').value.trim(), seconds: +$('seconds').value || 180, refBase64 };
-    cfg = c;
+    cfg = { caption, lyrics: $('lyrics').value.trim(), seconds: +$('seconds').value || 180, refBase64 };
     takeTotal = Math.max(1, +$('takes').value || 1);
     takeIdx = 0;
     runTake();
   }
-
-  let cfg = null, pending = 0;
-  let takeIdx = 0, takeTotal = 1, genStart = 0, lastP = null, tick = null;
 
   function runTake() {
     takeIdx += 1;
@@ -48,6 +92,7 @@ M3.studio = (function () {
     if (!tick) tick = setInterval(() => renderProgress(lastP || {}), 1000);
     window.m3.invoke('m3:music:generate', cfg)
       .catch(e => showProgress({ phase: 'error', note: e.message }));
+    syncFlow();
   }
 
   function mmss(ms) {
@@ -58,33 +103,84 @@ M3.studio = (function () {
   function renderProgress(p) {
     $('pbar').style.width = Math.round((p.progress || 0) * 100) + '%';
     const bits = [`Take ${takeIdx}/${takeTotal}`];
-    if (p.phase) bits.push(p.phase);
     if (p.note) bits.push(p.note);
     bits.push(`elapsed ${mmss(Date.now() - genStart)}`);
     if (p.seed) bits.push(`seed ${p.seed}`);
     $('pnote').textContent = bits.join(' · ');
+    renderPhases(p.phase ? p : { phase: 'queued' });
   }
 
   function showProgress(p) {
     lastP = p;
     renderProgress(p);
-    if (p.phase === 'error') { clearInterval(tick); tick = null; $('btn-gen').disabled = false; }
+    if (p.phase === 'error') { clearInterval(tick); tick = null; $('btn-gen').disabled = false; syncFlow(); }
   }
 
   function setNote(msg) { $('progress').classList.remove('hidden'); $('pnote').textContent = msg; }
 
+  /* ---------- step 4: takes + waveform ---------- */
   function addTake(t) {
     takeNo += 1;
     const div = document.createElement('div');
     div.className = 'take';
     const src = (t.mp3 || t.wav).replace(/\\/g, '/');
-    div.innerHTML = `<audio controls preload="none" src="file://${encodeURI(src)}"></audio>` +
+    div.innerHTML = `<canvas class="wave" height="44"></canvas>` +
+      `<audio controls preload="none" src="file://${encodeURI(src)}"></audio>` +
       `<div class="meta">#${takeNo} · ${t.seconds}s audio · ${t.elapsedSec}s gen · seed ${t.seed} · ${esc(t.mp3 || t.wav)}</div>`;
     const list = $('takes-list');
     if (list.classList.contains('empty')) { list.textContent = ''; list.classList.remove('empty'); }
     list.prepend(div);
+    drawWave(div.querySelector('.wave'), div.querySelector('audio'), src);
+    syncFlow();
   }
 
+  const audioCtx = () => (audioCtx.ctx ||= new AudioContext());
+  async function drawWave(canvas, audio, file) {
+    try {
+      const b64 = await window.m3.invoke('m3:music:peaks', file);
+      const raw = atob(b64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      const buf = await audioCtx().decodeAudioData(bytes.buffer);
+      const N = 140, ch = buf.getChannelData(0), step = Math.floor(ch.length / N) || 1;
+      const peaks = [];
+      for (let i = 0; i < N; i++) {
+        let mx = 0;
+        for (let j = 0; j < step; j += 16) { const v = Math.abs(ch[i * step + j] || 0); if (v > mx) mx = v; }
+        peaks.push(mx);
+      }
+      wave.peaks.set(canvas, peaks);
+      paintWave(canvas, 0);
+      canvas.onclick = e => {
+        const r = canvas.getBoundingClientRect();
+        audio.currentTime = ((e.clientX - r.left) / r.width) * buf.duration;
+      };
+      audio.addEventListener('timeupdate', () => {
+        if (audio.duration) paintWave(canvas, audio.currentTime / audio.duration);
+      });
+    } catch { /* soft: the audio element still works without the wave */ }
+  }
+  const wave = { peaks: new Map() };
+
+  function paintWave(canvas, ratio) {
+    const peaks = wave.peaks.get(canvas); if (!peaks) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth * dpr, h = 44 * dpr;
+    if (canvas.width !== w) { canvas.width = w; canvas.height = h; }
+    const g = canvas.getContext('2d');
+    const cs = getComputedStyle(document.documentElement);
+    const dim = cs.getPropertyValue('--line').trim() || '#333';
+    const hot = cs.getPropertyValue('--accent').trim() || '#fe8019';
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    const bw = canvas.width / peaks.length;
+    peaks.forEach((p, i) => {
+      const bh = Math.max(2, p * canvas.height * 0.9);
+      g.fillStyle = (i / peaks.length) <= ratio ? hot : dim;
+      g.fillRect(i * bw + bw * 0.15, (canvas.height - bh) / 2, bw * 0.7, bh);
+    });
+  }
+
+  /* ---------- folders / references ---------- */
   async function changeOut() {
     const c = await window.m3.invoke('m3:music:setout');
     if (c) $('takes-hint').textContent = c.outDir;
@@ -115,6 +211,9 @@ M3.studio = (function () {
     $('btn-gen').addEventListener('click', generate);
     $('btn-out').addEventListener('click', () => changeOut().catch(e => setNote(`output: ${e.message}`)));
     $('btn-addref').addEventListener('click', () => addRef().catch(e => setNote(`reference: ${e.message}`)));
+    $('idea').addEventListener('input', syncFlow);
+    $('caption').addEventListener('input', syncFlow);
+    wireFlowClicks();
     window.m3.on('m3:music:progress', showProgress);
     window.m3.on('m3:music:done', t => {
       addTake(t);
@@ -124,10 +223,12 @@ M3.studio = (function () {
         $('btn-gen').disabled = false;
         setNote(`${takeTotal} take(s) done in ${mmss(Date.now() - genStart)} — saved in ${'\u00A0'}${$('takes-hint').textContent}`);
         M3.status.refresh();
+        syncFlow();
       }
     });
     loadRefs();
+    syncFlow();
   }
 
-  return { init };
+  return { init, syncFlow };
 })();

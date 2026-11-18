@@ -277,6 +277,16 @@ function wire() {
     return fs.readFileSync(real).toString('base64');
   });
 
+  // waveform bytes: only files inside the take output folder, size-capped
+  ipcMain.handle('m3:music:peaks', (_e, p) => {
+    const real = fs.realpathSync(String(p));
+    if (!real.startsWith(fs.realpathSync(labCfg().outDir) + path.sep)) {
+      throw new Error('waveform only for generated takes');
+    }
+    if (fs.statSync(real).size > 64 * 1024 * 1024) throw new Error('file too large');
+    return fs.readFileSync(real).toString('base64');
+  });
+
   ipcMain.handle('m3:music:generate', (_e, cfg) => {
     if (job) throw new Error('a generation is already running');
     runJob(cfg); // async, reports via events

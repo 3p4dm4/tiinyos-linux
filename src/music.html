@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' data:; media-src file:; connect-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' data:; media-src file:; connect-src 'none'>
 <title>Music Lab</title>
 <link rel="stylesheet" href="performance.css">
 <link rel="stylesheet" href="music.css">
@@ -13,19 +13,31 @@
     <img src="music-lab.png" alt="" class="lab-logo">
     <div>
       <h1>Music Lab</h1>
-      <div class="sub">describe it → the writer model drafts the prompt → the composer model renders audio</div>
+      <div class="sub">describe it → the writer model drafts the prompt → the composer model renders audio, on the device</div>
     </div>
   </div>
   <div class="card statusbar" id="status"><span class="note">checking device…</span></div>
 </header>
 
+<nav aria-label="Workflow">
+  <ol class="flow" id="flow">
+    <li data-s="1"><b>1</b><span>Idea</span></li>
+    <li data-s="2"><b>2</b><span>Prompt</span></li>
+    <li data-s="3"><b>3</b><span>Generate</span></li>
+    <li data-s="4"><b>4</b><span>Takes</span></li>
+  </ol>
+</nav>
+
 <main class="lab-grid">
   <!-- composer side -->
   <section class="lab-col">
-    <div class="card step">
+    <div class="card step" id="step1">
       <div class="step-n">1</div>
       <div class="step-body">
-        <label class="lbl" for="idea">Describe what you want to hear</label>
+        <div class="step-top">
+          <label class="lbl" for="idea">Describe what you want to hear</label>
+          <span class="chip" id="writer-chip">checking writer model…</span>
+        </div>
         <p class="help">Plain words, any language — mood, instruments, rhythm, voices. The writer model turns this into the caption and lyrics the composer expects.</p>
         <textarea id="idea" rows="3" placeholder="e.g. nordic song, wordless female vocalise, drums slowly building to a wall of sound"></textarea>
         <div class="step-act">
@@ -35,11 +47,14 @@
       </div>
     </div>
 
-    <div class="card step">
+    <div class="card step" id="step2">
       <div class="step-n">2</div>
       <div class="step-body">
-        <label class="lbl" for="caption">Caption — what the music should sound like</label>
-        <p class="help">English, read almost literally by the composer: genre, mood, instruments, tempo, dynamics.</p>
+        <div class="step-top">
+          <span class="lbl">Prompt — what the composer will read</span>
+          <span class="chip" id="prompt-chip">waiting for step 1</span>
+        </div>
+        <label class="lbl" for="caption">Caption — genre, mood, instruments, tempo, dynamics (English, read almost literally)</label>
         <textarea id="caption" rows="6" placeholder="press Write prompt after step 1, or write your own"></textarea>
         <label class="lbl" for="lyrics">Lyrics — what is sung, section by section</label>
         <p class="help">Tags like [verse] [chorus] then the lines. For wordless vocals use syllables only (aia, ooh, ru na) — real words here are sung as real words.</p>
@@ -50,31 +65,46 @@
 
   <!-- studio side -->
   <aside class="lab-col">
-    <div class="card">
-      <div class="lbl">Models on the device</div>
+    <div class="card step" id="step3">
+      <div class="step-n">3</div>
+      <div class="step-body">
+        <div class="step-top">
+          <span class="lbl">Generate</span>
+          <span class="chip" id="composer-chip">checking composer…</span>
+        </div>
+        <label class="lbl" for="refs">Reference track <span class="hint" id="refs-hint"></span></label>
+        <p class="help">Optional mood anchor: pick a track already in the folder above, or add one from anywhere.</p>
+        <div class="ref-row">
+          <select id="refs" class="fill"><option value="">— none —</option></select>
+          <button type="button" id="btn-addref" class="ghost">Add track…</button>
+        </div>
+        <div class="field-grid">
+          <label class="fld"><span>Seconds</span><input id="seconds" type="number" value="180" min="30" max="600" step="30"></label>
+          <label class="fld"><span>Takes</span><input id="takes" type="number" value="1" min="1" max="4"></label>
+        </div>
+        <p class="help">A <b>take</b> is one generation of this exact prompt with a different seed: same idea, different performance. Generate 2–4 and keep the best.</p>
+        <button type="button" id="btn-gen" class="primary fill">Generate</button>
+        <div id="progress" class="hidden">
+          <ol class="phases" id="phases">
+            <li data-p="queued">Queued</li>
+            <li data-p="loading">Composer loading</li>
+            <li data-p="generating">Composing</li>
+            <li data-p="saving">Saving</li>
+            <li data-p="done">Done</li>
+          </ol>
+          <div class="bar"><i id="pbar"></i></div>
+          <div class="note" id="pnote"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="device-card">
+      <div class="lbl">On the device</div>
       <div id="models"><span class="note">checking…</span></div>
+      <p class="help">Generation is <b>local</b>: the composer runs on the Pocket's NPU, no cloud. The NPU holds one big model at a time — switching composer means a swap, which the device does by itself when you generate (~1 min).</p>
     </div>
 
-    <div class="card">
-      <label class="lbl" for="refs">Reference track <span class="hint" id="refs-hint"></span></label>
-      <p class="help">Optional mood anchor: pick a track already in the folder above, or add one from anywhere.</p>
-      <div class="ref-row">
-        <select id="refs" class="fill"><option value="">— none —</option></select>
-        <button type="button" id="btn-addref" class="ghost">Add track…</button>
-      </div>
-      <div class="field-grid">
-        <label class="fld"><span>Seconds</span><input id="seconds" type="number" value="180" min="30" max="600" step="30"></label>
-        <label class="fld"><span>Takes</span><input id="takes" type="number" value="1" min="1" max="4"></label>
-      </div>
-      <p class="help">A <b>take</b> is one generation of this exact prompt with a different seed: same idea, different performance. Generate 2–4 and keep the best.</p>
-      <button type="button" id="btn-gen" class="primary fill">Generate</button>
-      <div id="progress" class="hidden">
-        <div class="bar"><i id="pbar"></i></div>
-        <div class="note" id="pnote"></div>
-      </div>
-    </div>
-
-    <div class="card takes-card">
+    <div class="card takes-card" id="step4">
       <div class="lbl">Takes <span class="hint">saved in <span id="takes-hint"></span></span>
         <button type="button" id="btn-out" class="ghost">Change folder…</button>
       </div>
