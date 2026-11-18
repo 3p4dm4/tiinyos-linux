@@ -65,3 +65,10 @@ button.primary:disabled{opacity:.5;cursor:default}
 .mbar{display:flex;align-items:center;gap:6px;min-width:110px;font-size:11px;color:var(--muted)}
 .mbar .bar{margin:0;width:70px}
 .dot.off{background:var(--muted)}
+
+/* ghost buttons + reference row */
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);
+  border-radius:6px;padding:5px 10px;font-size:12px}
+button.ghost:hover{border-color:var(--accent)}
+.ref-row{display:flex;gap:8px;align-items:center}
+.takes-card .lbl{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}

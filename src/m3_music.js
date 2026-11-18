@@ -8,7 +8,7 @@
  * explicitly reports what is loaded and what AceStep would evict.
  */
 'use strict';
-const { BrowserWindow, ipcMain } = require('electron');
+const { BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -29,6 +29,13 @@ function labCfg() {
     outDir: c.outDir || path.join(os.homedir(), 'Musica', 'tiiny'),
     refsDir: c.refsDir || path.join(os.homedir(), 'Musica', 'references'),
   };
+}
+function saveCfg(patch) {
+  let cur = {};
+  try { cur = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { /* fresh */ }
+  Object.assign(cur, patch);
+  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cur, null, 2) + '\n');
 }
 
 let win = null;
@@ -108,7 +115,8 @@ function slug(s) {
 async function runJob(cfg) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const name = `${slug(cfg.caption.slice(0, 40))}-${stamp}`;
-  job = { startedAt: Date.now(), session: null, phase: 'queued', progress: 0, note: 'submitting' };
+  const seed = cfg.seed || Math.floor(Math.random() * 1e6);
+  job = { startedAt: Date.now(), session: null, phase: 'queued', progress: 0, note: 'submitting', seed };
   send('m3:music:progress', { ...job });
 
   const before = new Set((await sessionList()).map(s => s.session_id));
@@ -135,7 +143,7 @@ async function runJob(cfg) {
         caption: cfg.caption, lyrics: cfg.lyrics || '(instrumental)',
         reference_audio_base64: cfg.refBase64 || undefined,
         seconds_total: Math.min(600, Math.max(30, cfg.seconds || 180)),
-        steps: 12, seed: cfg.seed || Math.floor(Math.random() * 1e6),
+        steps: 12, seed,
         temperature: cfg.temperature ?? 0.85,
       },
     });
@@ -154,7 +162,7 @@ async function runJob(cfg) {
     }
     job.phase = 'done';
     send('m3:music:done', {
-      wav: wavPath, mp3: mp3Path, seconds: cfg.seconds,
+      wav: wavPath, mp3: mp3Path, seconds: cfg.seconds, seed,
       elapsedSec: Math.round((Date.now() - job.startedAt) / 1000), session: job.session,
     });
   } catch (e) {
@@ -226,6 +234,39 @@ function wire() {
   });
 
   ipcMain.handle('m3:music:config', () => ({ ...labCfg(), configPath: CONFIG_PATH }));
+
+  // pick a different output folder (persisted in the config file)
+  ipcMain.handle('m3:music:setout', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Choose output folder', defaultPath: labCfg().outDir,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    saveCfg({ outDir: r.filePaths[0] });
+    return labCfg();
+  });
+
+  // copy an audio file into the references folder and return it
+  ipcMain.handle('m3:music:addref', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Add reference track',
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'flac', 'm4a', 'ogg'] }],
+      properties: ['openFile'],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const src = r.filePaths[0];
+    const st = fs.statSync(src);
+    if (st.size > 64 * 1024 * 1024) throw new Error('reference too large (max 64 MB)');
+    const dir = labCfg().refsDir;
+    fs.mkdirSync(dir, { recursive: true });
+    const ext = path.extname(src);
+    let dest = path.join(dir, path.basename(src));
+    for (let i = 1; fs.existsSync(dest); i++) {
+      dest = path.join(dir, `${path.basename(src, ext)}-${i}${ext}`);
+    }
+    fs.copyFileSync(src, dest);
+    return { name: path.basename(dest), path: dest, size: st.size };
+  });
 
   // path guard: only files inside the configured references dir may become references
   ipcMain.handle('m3:music:refb64', (_e, p) => {

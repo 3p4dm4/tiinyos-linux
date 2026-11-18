@@ -57,8 +57,11 @@
 
     <div class="card">
       <label class="lbl" for="refs">Reference track <span class="hint" id="refs-hint"></span></label>
-      <p class="help">Optional mood anchor. Drop audio files in that folder to list them here.</p>
-      <select id="refs" class="fill"><option value="">— none —</option></select>
+      <p class="help">Optional mood anchor: pick a track already in the folder above, or add one from anywhere.</p>
+      <div class="ref-row">
+        <select id="refs" class="fill"><option value="">— none —</option></select>
+        <button type="button" id="btn-addref" class="ghost">Add track…</button>
+      </div>
       <div class="field-grid">
         <label class="fld"><span>Seconds</span><input id="seconds" type="number" value="180" min="30" max="600" step="30"></label>
         <label class="fld"><span>Takes</span><input id="takes" type="number" value="1" min="1" max="4"></label>
@@ -72,7 +75,9 @@
     </div>
 
     <div class="card takes-card">
-      <div class="lbl">Takes <span class="hint">saved in <span id="takes-hint"></span></span></div>
+      <div class="lbl">Takes <span class="hint">saved in <span id="takes-hint"></span></span>
+        <button type="button" id="btn-out" class="ghost">Change folder…</button>
+      </div>
       <div id="takes-list" class="empty">Nothing generated yet in this session.</div>
     </div>
   </aside>
