@@ -23,7 +23,7 @@ M3.studio = (function () {
 
   async function generate() {
     const caption = $('caption').value.trim();
-    if (!caption) { $('pnote').textContent = 'caption is empty (use ✨ or write one)'; return; }
+    if (!caption) { $('pnote').textContent = 'caption is empty — write one, or press Write prompt'; return; }
     const refPath = $('refs').value;
     let refBase64 = '';
     if (refPath) {
@@ -59,7 +59,7 @@ M3.studio = (function () {
     div.innerHTML = `<audio controls preload="none" src="file://${encodeURI(src)}"></audio>` +
       `<div class="meta">#${takeNo} · ${t.seconds}s · ${t.elapsedSec}s gen · ${esc(t.mp3 || t.wav)}</div>`;
     const list = $('takes-list');
-    if (list.classList.contains('note')) { list.textContent = ''; list.classList.remove('note'); }
+    if (list.classList.contains('empty')) { list.textContent = ''; list.classList.remove('empty'); }
     list.prepend(div);
   }
 
