@@ -26,4 +26,4 @@ button:disabled{opacity:.45;cursor:default}
 .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;background:var(--panel2);border:1px solid var(--line);margin-right:4px}
 .note{color:var(--muted);font-size:12px;margin-top:6px}
 .grp td{color:var(--muted);font-weight:600;padding-top:14px;border-bottom:1px solid var(--line);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-.pill.run{background:#123d1e;border-color:#2e7d44;color:#8fe3a6}
+.pill.run{background:var(--panel2);border-color:var(--ok);color:var(--ok)}
