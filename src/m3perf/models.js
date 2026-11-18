@@ -78,8 +78,7 @@ M3.models = (function () {
       card.className = 'cat';
       const h = document.createElement('h3'); h.textContent = g;
       const sum = document.createElement('div'); sum.className = 'cat-sum';
-      sum.textContent = `${ms.length} model${ms.length > 1 ? 's' : ''} · ${M3.fmt.gb(gBytes)}`;
-      card.append(h, sum);
+      sum.textContent = `${ms.length} model${ms.length > 1 ? 's' : ''} · ${M3.fmt.gb(gBytes)}`;      card.append(h, sum);
       for (const m of ms) {
         const row = document.createElement('div'); row.className = 'cat-row';
         const nm = document.createElement('span'); nm.className = 'mono ell';
@@ -89,14 +88,14 @@ M3.models = (function () {
         row.append(nm, sz);
         if (m.status === 'running') {
           const p = document.createElement('span'); p.className = 'pill run';
-          p.textContent = 'in uso'; row.appendChild(p);
+          p.textContent = 'running'; row.appendChild(p);
         }
         card.appendChild(row);
       }
       el.appendChild(card);
     }
     document.getElementById('store-total').textContent =
-      `Totale su disco: ${totalCount} modelli, ${M3.fmt.gb(totalBytes)}`;
+      `Total on disk — ${totalCount} models, ${M3.fmt.gb(totalBytes)}`;
     M3.storeBytes = totalBytes; // consumed by gauges for the Disk card
   }
   return { refresh };

@@ -2,6 +2,12 @@
   --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
   --text:#e8eaf0; --muted:#9aa3b2; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --accent:#6ea8fe;
 }
+@media (prefers-color-scheme:light){
+  :root{ /* light tints of the same roles, so the page follows the OS theme */
+    --bg:#f5f6f8; --panel:#ffffff; --panel2:#eceef2; --line:#d4d9e1;
+    --text:#1a1d24; --muted:#5b6472; --ok:#15803d; --warn:#b45309; --err:#b91c1c; --accent:#2563eb;
+  }
+}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;padding:20px}
 h1{font-size:18px;margin:0 0 4px}
