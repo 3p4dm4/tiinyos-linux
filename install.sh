@@ -82,6 +82,7 @@ run python3 "$HERE/tools/patch_main.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_ball_blur.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_ball_click.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_skip_taskbar.py" "$UNP/out/main/index.js"
+run python3 "$HERE/tools/patch_activity.py" "$UNP/out/main/index.js"
 
 # 5. repack + restore unpacked flags
 run sh -c "$ASAR_BIN pack '$UNP' '$RES/app.asar.new'"
@@ -97,7 +98,7 @@ import json, sys
 d = open(sys.argv[1], "rb").read()
 n = int.from_bytes(d[12:16], "little")
 h = json.dumps(json.loads(d[16:16 + n]))
-for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_music.js", "music.html"):
+for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_activity.js", "m3_music.js", "music.html"):
     assert f in h, f"{f} missing from header"
 assert "integrity" in h, "no integrity block"
 print("[tiinyos-linux] verify: header OK")

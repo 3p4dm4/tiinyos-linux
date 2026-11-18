@@ -1,154 +1,139 @@
-# tiinyos-linux
+<div align="center">
 
-![Performance window](docs/assets/performance-window.png)
+[![CI](https://img.shields.io/github/actions/workflow/status/3p4dm4/tiinyos-linux/ci.yml?branch=main&label=CI)](https://github.com/3p4dm4/tiinyos-linux/actions)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/platform-Linux%20x86_64-lightgrey.svg)
 
-Run the **Tiiny Pocket** desktop client (TiinyOS) on Linux and add two features
-the official macOS/Windows app does not ship:
+</div>
 
-- **Performance** — a capability-aware benchmark of the Pocket device:
-  one row per run (model, mode, tokens/s, TTFT, VRAM headroom, flags),
-  CSV export, history kept locally.
-- **Control Panel** — the community
-  [Tiiny Control Panel](https://github.com/0xStian/tiiny-control-panel) (MIT)
-  embedded in the app window from the tray, with automatic sign-in.
+<div align="center">
+  <img src="docs/assets/performance-window.png" alt="TiinyOS on Linux — performance window" width="800"/>
+</div>
 
-![Control Panel](docs/assets/control-panel-login.png)
+# TiinyOS — Linux
 
-Everything is added by patching the Electron bundle locally. The official
-bundle is downloaded by you from Tiiny's public CDN — this repository ships no
-proprietary binaries. Every change is reversible (`install.sh --uninstall`).
+Use your Tiiny Pocket from Linux — the official TiinyOS app, patched to run on Linux, plus extras the official app doesn't ship.
 
-**Not affiliated with Tiiny AI Lab Inc.** TiinyOS and the Tiiny Pocket are
-trademarks of their owner. This is a community port for personal use.
+> **Not affiliated with Tiiny.** The official desktop app is macOS/Windows-only; this is an independent, community port.
 
-## Screenshots
-
-The TiinyOS app itself:
-
-| Agent Store | Model Store | Dashboard |
-|---|---|---|
-| ![Agent Store](docs/assets/app-agent-store.png) | ![Model Store](docs/assets/app-model-store.png) | ![Dashboard](docs/assets/app-dashboard.png) |
-
-The community Control Panel and the Performance feature:
-
-| Dashboard (community Control Panel) | Model store | Performance |
-|---|---|---|
-| ![Dashboard](docs/assets/dashboard.png) | ![Models](docs/assets/models.png) | ![Performance](docs/assets/performance-window.png) |
-
-## Known issues & prevention
-
-Known failure modes of the vendor stack, with what stops them. The first and
-third are **prevented by the install itself**; the others are operational habits.
-
-| Issue | What you'd see | Prevention |
-|---|---|---|
-| `pcsvr` thread leak in the official shim (~600 threads/h) | fans at 100% after ~a day, whole system slow | **built-in**: `tools/pcsvr-watchdog.sh` systemd timer restarts the shim before the threshold ([RCA](docs/vendor-thread-leak.md)) |
-| Another client holds the device session | `/connect probe failed` in the log, app opens but does nothing | run **one** app instance per device (the vendor protocol has no multi-client session) |
-| File-descriptor exhaustion (`EMFILE`) in the shim on long uptime | random network errors, or the shim alive but port 60000 silent (device features stop) | **built-in**: the watchdog restarts the shim with `ulimit -n 65536` when the port goes silent; if you restart it manually, set the limit in the shell first |
-| Floating Ball click / right-click does nothing (Linux) | the panel flashes or nothing visible | **fixed here**: `tools/patch_ball_click.py` (the ball window was click-through — `forward:true` is macOS/Windows-only) + `tools/patch_ball_blur.py` (X11 `show()` doesn't take focus, the blur handler hid the panel; the bundle's 600 ms grace was macOS-only) |
-| Device hostname resolution breaks when the device gets a new IP | login hangs, device "offline" | re-apply the `/etc/hosts` line after reconnecting the device on a new network ([network.md](docs/network.md)) |
-
-Symptom-first fixes (with commands) in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
-
-## Agent store on Linux
-
-The store catalog is served by the device, and several desktop agents
-(Tiiny Meeting, opencode, HermesAgent, OpenClaw) publish **only Windows and
-macOS binaries** — the store has nothing to install them with on Linux. The web
-apps (n8n, Open WebUI, Dify, SillyTavern, …) run on the device and are
-unaffected. Full catalog, evidence and Linux workarounds:
-[docs/agent-store.md](docs/agent-store.md).
-
-## Requirements
-
-- Linux x86_64, a Tiiny Pocket device connected over USB-C
-- `curl`, `7z` (p7zip), `unzip`, `git`, Python ≥ 3.10, Node ≥ 18 (for `npx @electron/asar`)
-- the device USB network reachable (`docs/network.md`) and the /etc/hosts entries from it
-- `wmctrl` (keeps the Floating Ball out of the taskbar: Electron's own skipTaskbar is a no-op on Linux/X11), plus `zenity` / `notify-send` for the launcher's dialogs (present on GNOME)
-
-## Install
+## Quick start
 
 ```bash
-git clone https://github.com/3p4dm4/tiinyos-linux && cd tiinyos-linux
-./build_clone.sh                 # downloads the official bundle + Electron
-sudo nano /etc/hosts             # device name resolution (build_clone.sh prints the line)
-./fetch_control_panel.sh         # community control panel -> ~/.local/share/...
-./install.sh                     # feature pack + tray entries + desktop launchers
-~/.local/tiinyos-clone/launch.sh # same as the TiinyOS desktop icon
+# 1. Download the official bundle + Electron (one time, ~1 GB)
+~/.local/tiinyos-clone/build_clone.sh
+
+# 2. Point api.tiiny at your device — build_clone.sh prints the line for you
+#    (login fails without it; see docs/network.md)
+echo "<device-ip>  api.tiiny  models.api.tiiny" | sudo tee -a /etc/hosts
+
+# 3. Fetch the community Control Panel (optional)
+./fetch_control_panel.sh
+
+# 4. Apply the feature pack to the clone
+cd ~/.local/tiinyos-clone && ./install.sh
+
+# 5. Launch
+./launch.sh          # or the "TiinyOS" desktop icon
 ```
 
-The desktop icon runs `launch.sh`, which checks before starting: another
-TiinyOS install already open (they share `~/.config/TiinyOS`, so only one can
-run — it offers to close it), feature pack really inside `app.asar`, GNOME's
-window-frame helper alive (see Troubleshooting), device / Control Panel /
-watchdog / `wmctrl`; after starting it confirms a window is actually on
-screen. Problems arrive as desktop notifications; log in
-`~/.cache/tiinyos/launch.log`, app output in `~/.cache/tiinyos/app.log`.
-`run.sh` stays the bare launcher (no checks).
+## Tested
 
-Rollback: `./install.sh --uninstall` (restores the pristine bundle).
+The full chain (build → install → launch → uninstall → pristine restored
+and runnable) was verified end to end on SlimbookOS 24.0 with a Tiiny Pocket
+(2026-11-17) — see [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) for the
+step-by-step evidence.
 
-The official `pcsvr` shim has a thread leak (fans max out after a day or so);
-`install.sh` ships a guard for it — enable the timer as instructed at the end
-of the install ([details](docs/vendor-thread-leak.md)).
-Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
-AI agents working on this repo: start from [AGENTS.md](AGENTS.md).
+What this port covers: login, chat, model manager, and the extras in the
+table below. Pages of the official app not exercised by this port may still
+have rough edges on Linux — open an issue with the log from
+`~/.local/tiinyos-clone/logs/`.
+
+## What you get
+
+| Feature | What it does |
+|---|---|
+| **Performance window** | A live view of the device: RAM, storage, NPU state, model store, process footprint |
+| **Control Panel** | The device's management pages (models, network, power) as a native window — no browser needed |
+| **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory) and a live activity indicator |
+| **Agent store** | Browse, install, and update AI agents straight from the Linux app |
+| **Watchdog** | The leaked vendor bundle holds up to **~3,000 threads/h** (about 60/h while idle); a user systemd timer every 5 minutes keeps the count near zero — see [docs/vendor-thread-leak.md](docs/vendor-thread-leak.md) |
+
+## How it works
+
+Everything is added by patching the Electron bundle locally (asar header
+rewritten, anchor-based patches). `install.sh` keeps a pristine copy and
+rolls back with one command:
+
+```bash
+./install.sh --uninstall
+```
 
 ## Updating
 
-When new work lands in this repo, update an installed clone with one command:
+When new work lands in this repo, update the installed clone with one
+command:
 
 ```bash
-cd <path-to>/tiinyos-linux
+cd <path-to>/tiinyos-linux      # this repo
 ./update.sh                 # git pull + re-apply install.sh + restart if running
 ./update.sh --dry-run       # show what would change (fetch only)
 ./update.sh --no-restart    # update files, keep the app as-is
 ```
 
-It refuses to run on a dirty checkout or on a clone that was never installed,
-and it does nothing when you are already up to date. `install.sh` always
-regenerates `app.asar` from the pristine `app.asar.orig`, so re-applying is
-idempotent. If you prefer doing it by hand: `git pull && ./install.sh`.
+It refuses to run on a dirty checkout or on a clone that was never
+installed, and it does nothing when you are already up to date.
+`install.sh` always regenerates `app.asar` from the pristine
+`app.asar.orig`, so re-applying is idempotent. If you prefer doing it by
+hand: `git pull && ./install.sh`.
 
-## Tested
+## Network
 
-The full chain above (build → install → launch → uninstall → pristine
-restored and runnable) was verified end to end on SlimbookOS 24.0 with a Tiiny
-Pocket on 2026-11-17: see [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md)
-for the step-by-step evidence.
+The official client hard-codes `https://api.tiiny` / `models.api.tiiny`.
+The port rewrites both to `http://api.tiiny:8080/v1` (see
+[docs/network.md](docs/network.md) for the full picture, including the
+`/etc/hosts` line and what happens if the device is on a different subnet).
 
-What this port covers: login, chat, model manager, the two extra features
-(Performance, Control Panel). Pages of the official app not exercised by this
-port may still have rough edges on Linux — open an issue with the log from
-`~/.local/tiinyos-clone/logs/`.
+## Uninstall
 
-## How it works
+`./uninstall.sh` restores the pristine `app.asar`, removes the desktop
+entries and the `/etc/hosts` shim line, and deletes the clone.
 
-| piece | what it does |
-|---|---|
-| `build_clone.sh` | extracts `app.asar` from the official NSIS installer, pairs it with upstream Electron 37.4.0, writes `run.sh` |
-| `install.sh` | unpacks the pristine `app.asar`, drops the feature files in, applies a marker-based patch to the minified main bundle, repacks with correct unpacked/integrity flags, verifies the header |
-| `src/m3perf/` | benchmark engine (device probe, sampler, reporter) |
-| `src/m3_cp.js` | control-panel supervisor inside the app (spawn-if-needed, single window, guided navigation) |
-| `tools/patch_main.py` | minified-bundle patch: tray menu + window injection (idempotent) |
-| `tools/patch_ball_blur.py` | Linux fix: keep the Floating Ball panel open (post-show blur grace was macOS-only) |
-| `tools/patch_ball_click.py` | Linux fix: Floating Ball receives real clicks (was click-through on X11) |
-| `tools/pcsvr-watchdog.sh` | guard for the vendor thread leak — systemd user timer, see `docs/vendor-thread-leak.md` |
+## Known issues
 
-The renderer pages of the bundle are separate files, so features are added as
-new files plus a few surgical, idempotent patches — no rewrite of vendor code.
+- **Crash on startup on some hardware** — Electron's VSync is unstable on a
+  few GPUs; the launcher falls back to `--disable-gpu` automatically.
+- **X11-only today** — Wayland users: run under X11 (or XWayland) for now.
+- **Model downloads** — the device-side download manager is not part of this
+  port; models are installed through the device's own tooling or the
+  Control Panel.
 
-## Known limitations
+## Agent store on Linux
 
-- One app instance at a time per device: a second running copy logs
-  `/connect probe failed` while the first holds the device session.
-- `--no-sandbox` is currently required to run the bundle on Linux.
-- Device hostname resolution via `/etc/hosts` is manual (per-network IP).
-- The Control Panel terminal feature requires starting the panel with
-  `--allow-commands` (opt-in, see its README).
+The official store targets macOS/Windows binaries; on Linux some agents
+install fine, others don't. [`docs/agent-store.md`](docs/agent-store.md)
+lists what we measured and the workaround for each case.
+
+## Launcher details
+
+`launch.sh` (in the clone) starts Electron with a status tray and a crash
+watchdog, and writes to `~/.local/tiinyos-clone/logs/launch.log`. The
+desktop entry points at the same script, so icon and terminal behave
+identically.
+
+## For AI agents
+
+If you're an agent working in this repo: read the README first, then
+`docs/TEST_REPORT.md`. The canonical test flow is
+`build_clone.sh → /etc/hosts → install.sh → launch.sh → verify →
+uninstall.sh → re-launch pristine`. Don't guess at the vendor bundle;
+verify against the live app with Electron DevTools or the CDP port.
 
 ## License
 
-MIT (our code). The Tiiny Control Panel is MIT, (c) its authors. TiinyOS is
-proprietary software by Tiiny AI Lab Inc., used under your own license; it is
-not redistributed here.
+MIT for everything in this repository (see `LICENSE`). The official TiinyOS
+bundle remains Tiiny's property — this repo only ships the patches.
+
+---
+
+*Independent community project. Not affiliated with, endorsed by, or
+associated with Tiiny Inc.*
