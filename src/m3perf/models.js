@@ -28,17 +28,17 @@ M3.models = (function () {
 
   async function refresh() {
     const tb = document.querySelector('#t-models tbody');
-    const ts = document.querySelector('#t-store tbody');
+    const ts = document.getElementById('t-store');
     try {
       const [loaded, store] = await Promise.all([
         window.m3.invoke('m3:models'), window.m3.invoke('m3:store')]);
       renderLoaded(tb, loaded);
       renderStore(ts, store);
     } catch (e) {
-      const msg = '<tr><td colspan="4" class="note err"></td></tr>';
-      tb.innerHTML = msg; ts.innerHTML = msg;
+      tb.innerHTML = '<tr><td colspan="4" class="note err"></td></tr>';
       tb.querySelector('td').textContent = 'error: ' + (e.message || e);
-      ts.querySelector('td').textContent = 'error: ' + (e.message || e);
+      ts.innerHTML = '<div class="note err"></div>';
+      ts.querySelector('.note').textContent = 'error: ' + (e.message || e);
     }
   }
 
@@ -58,15 +58,15 @@ M3.models = (function () {
     }
   }
 
-  function renderStore(tb, store) {
-    if (!store.length) { tb.innerHTML = '<tr><td colspan="4" class="note">store unreachable</td></tr>'; return; }
+  function renderStore(el, store) {
+    if (!store.length) { el.innerHTML = '<div class="note">store unreachable</div>'; return; }
     const byGroup = new Map();
     for (const m of store) {
       const g = groupOf(m.type);
       if (!byGroup.has(g)) byGroup.set(g, []);
       byGroup.get(g).push(m);
     }
-    tb.innerHTML = '';
+    el.innerHTML = '';
     const order = [...GROUPS.map(g => g[0]), 'Other'];
     let totalBytes = 0, totalCount = 0;
     for (const g of order) {
@@ -74,26 +74,29 @@ M3.models = (function () {
       if (!ms || !ms.length) continue;
       const gBytes = ms.reduce((a, m) => a + m.size, 0);
       totalBytes += gBytes; totalCount += ms.length;
-      const head = document.createElement('tr');
-      head.className = 'grp';
-      head.innerHTML = `<td colspan="4"></td>`;
-      head.querySelector('td').textContent = `${g} — ${ms.length} model${ms.length > 1 ? 's' : ''}, ${M3.fmt.gb(gBytes)}`;
-      tb.appendChild(head);
+      const card = document.createElement('div');
+      card.className = 'cat';
+      const h = document.createElement('h3'); h.textContent = g;
+      const sum = document.createElement('div'); sum.className = 'cat-sum';
+      sum.textContent = `${ms.length} model${ms.length > 1 ? 's' : ''} · ${M3.fmt.gb(gBytes)}`;
+      card.append(h, sum);
       for (const m of ms) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td class="mono"></td>'
-          + `<td class="mono">${M3.fmt.gb(m.size)}</td>`
-          + `<td class="mono">${M3.fmt.num(m.context || '')}</td>`
-          + `<td><span class="pill ${m.status === 'running' ? 'run' : ''}">${m.status}</span></td>`;
-        tr.querySelector('td').textContent = m.id;
-        tb.appendChild(tr);
+        const row = document.createElement('div'); row.className = 'cat-row';
+        const nm = document.createElement('span'); nm.className = 'mono ell';
+        nm.textContent = m.name || m.id; nm.title = m.id;
+        const sz = document.createElement('span'); sz.className = 'mono';
+        sz.textContent = M3.fmt.gb(m.size);
+        row.append(nm, sz);
+        if (m.status === 'running') {
+          const p = document.createElement('span'); p.className = 'pill run';
+          p.textContent = 'in uso'; row.appendChild(p);
+        }
+        card.appendChild(row);
       }
+      el.appendChild(card);
     }
-    const foot = document.createElement('tr');
-    foot.className = 'grp';
-    foot.innerHTML = `<td colspan="4"></td>`;
-    foot.querySelector('td').textContent = `Total on disk — ${totalCount} models, ${M3.fmt.gb(totalBytes)}`;
-    tb.appendChild(foot);
+    document.getElementById('store-total').textContent =
+      `Totale su disco: ${totalCount} modelli, ${M3.fmt.gb(totalBytes)}`;
     M3.storeBytes = totalBytes; // consumed by gauges for the Disk card
   }
   return { refresh };

@@ -6,7 +6,7 @@
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;padding:20px}
 h1{font-size:18px;margin:0 0 4px}
 .sub{color:var(--muted);font-size:12px;margin-bottom:18px}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
 .card .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
 .card .v{font-size:26px;font-weight:600;margin-top:4px}
@@ -25,5 +25,10 @@ button{background:var(--accent);color:#0b1220;border:0;border-radius:6px;padding
 button:disabled{opacity:.45;cursor:default}
 .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;background:var(--panel2);border:1px solid var(--line);margin-right:4px}
 .note{color:var(--muted);font-size:12px;margin-top:6px}
-.grp td{color:var(--muted);font-weight:600;padding-top:14px;border-bottom:1px solid var(--line);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .pill.run{background:var(--panel2);border-color:var(--ok);color:var(--ok)}
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.cat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.cat h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.cat-sum{font-size:20px;font-weight:600;margin:2px 0 8px}
+.cat-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0;border-top:1px solid var(--line)}
+.cat-row .ell{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
