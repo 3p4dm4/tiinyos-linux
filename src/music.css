@@ -1,54 +1,100 @@
-/* M3 — Music Lab specifics (base tokens/body come from performance.css). */
+/* M3 — Music Lab specifics. performance.css gives the reset/body; the tokens below override its
+ * dashboard palette for this page only (the Performance window keeps its own).
+ * Follows the OS theme. Contrast targets: cards visibly off the page, field and control
+ * borders >= 3:1 against their background (rule/color-nontext-contrast), text >= 4.5:1.
+ * Type scale: 12 / 13 / 14 / 20 px, labels never below 13 (rule/type-neutral-scale). */
+:root{ /* dark: page < card < field, each step visible */
+  --bg:#0b0d12; --panel:#1b1f29; --panel2:#262c38; --edge:#343b4a; --line:#707a90;
+  --text:#eef0f5; --muted:#b4bccb; --accent:#8ab4ff; --on-accent:#0b1220;
+  --hot:#ff9a3c; --on-hot:#1a0d00; --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+  --shadow:none;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --bg:#eef0f4; --panel:#ffffff; --panel2:#f6f7f9; --edge:#d4d9e1; --line:#7b8494;
+    --text:#161a22; --muted:#4a5363; --accent:#1d5fd6; --on-accent:#ffffff;
+    --hot:#b4530a; --on-hot:#ffffff; --ok:#15803d; --warn:#b45309; --err:#b91c1c;
+    --shadow:0 1px 2px rgb(0 0 0 / .06);
+  }
+}
+body{font-size:14px}
+.card{border-color:var(--edge);box-shadow:var(--shadow);border-radius:10px}
+
+/* header: title left, device state right (state, not a step) */
 .lab-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .lab-title{display:flex;gap:12px;align-items:center}
-.lab-logo{width:44px;height:44px;border-radius:10px}
-.lab-head h1{margin:0}
-.statusbar{margin:0;padding:10px 14px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;min-width:min(480px,100%)}
+.lab-logo{width:48px;height:48px;border-radius:11px}
+.lab-head h1{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.device{padding:9px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.device-state{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.device .note{margin:0}
 
-.lab-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;align-items:start;margin-top:14px}
-.lab-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* page = one screen: header, stepper, then a 2x2 grid that takes the rest.
+ * Columns are equal so stepper items 1-2 sit over the left column and 3-4 over the right. */
+html,body{height:100%}
+body{display:flex;flex-direction:column;min-height:0}
+.lab-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;
+  grid-template-areas:"s1 s3" "s2 s4";gap:16px;margin-top:16px}
+#step1{grid-area:s1} #step2{grid-area:s2} #step3{grid-area:s3} #step4{grid-area:s4}
+.lab-grid > .card{min-width:0;min-height:0}
+#step1 textarea,#step2 textarea{flex:1 1 auto;min-height:72px}
 
+/* fields: own surface + a border you can see */
 textarea{width:100%;box-sizing:border-box;background:var(--panel2);color:var(--text);
-  border:1px solid var(--line);border-radius:8px;padding:9px;font:12px/1.5 ui-monospace,monospace;resize:vertical}
-textarea:focus,select:focus,input:focus{outline:2px solid var(--accent);outline-offset:0}
+  border:1px solid var(--line);border-radius:8px;padding:10px;font:14px/1.5 system-ui,sans-serif;resize:vertical}
+textarea#caption,textarea#lyrics{font:13px/1.5 ui-monospace,monospace;margin-bottom:4px}
+textarea::placeholder{color:var(--muted);opacity:1}
+textarea:focus,select:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 select,input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--line);
-  border-radius:6px;padding:6px 8px;font-size:12px}
+  border-radius:8px;padding:7px 9px;font-size:14px}
 select.fill,input.fill{width:100%;min-width:0}
-button.primary{background:var(--ok);color:var(--bg);font-weight:700;font-size:13px;padding:9px 14px;margin-top:4px}
-button.primary:disabled{opacity:.5;cursor:default}
 .hidden{display:none}
 
+/* actions: blue = write, orange = generate */
+button{font-size:14px;border-radius:8px}
+button.write{background:var(--accent);color:var(--on-accent);padding:9px 16px}
+button.primary{background:var(--hot);color:var(--on-hot);font-weight:700;padding:10px 16px;margin-top:4px}
+button.write:hover,button.primary:hover{filter:brightness(1.08)}
+button.primary:disabled{opacity:.5;cursor:default}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);padding:6px 12px;font-size:13px;font-weight:600;flex:none}
+button.ghost:hover{border-color:var(--accent)}
+
 /* workflow stepper */
-.flow{display:flex;gap:0;margin:14px 0 0;padding:0;list-style:none;counter-reset:s}
-.flow li{display:flex;align-items:center;gap:8px;flex:1;min-width:0;color:var(--muted);font-size:12px;position:relative;padding:0 10px}
-.flow li b{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);
-  display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--panel)}
+.flow{display:flex;gap:0;margin:16px 0 0;padding:0;list-style:none}
+.flow li{display:flex;align-items:center;gap:8px;flex:1;min-width:0;color:var(--muted);font-size:14px;position:relative;padding:0 10px}
+.flow li b{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--panel)}
 .flow li::after{content:"";flex:1;height:1px;background:var(--line);margin-left:8px}
 .flow li:last-child::after{display:none}
 .flow li.done{color:var(--text)}
-.flow li.done b{background:var(--ok);border-color:var(--ok);color:var(--bg)}
-.flow li.done b::before{content:"✓"}
-.flow li.done b{font-size:0}
+.flow li.done b{background:var(--ok);border-color:var(--ok);color:var(--bg);font-size:0}
+.flow li.done b::before{content:"✓";font-size:13px}
 .flow li.active{color:var(--text);font-weight:600}
 .flow li.active b{border-color:var(--accent);color:var(--accent)}
 @media (prefers-reduced-motion: no-preference){
   .flow li.active b{animation:pulse 1.6s ease-in-out infinite}
 }
 
-textarea#caption,textarea#lyrics{margin-bottom:4px}
-
 /* numbered steps */
 .step{display:flex;gap:12px}
-.step-n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--bg);
+.step-n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent);
   font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.step-n.done{background:var(--ok);font-size:0}
+.step-n.done::before{content:"✓";font-size:13px}
+.step-n.active{box-shadow:0 0 0 3px var(--panel),0 0 0 5px var(--accent)}
+.step-n:not(.done):not(.active){background:var(--panel2);color:var(--muted);border:1.5px solid var(--line)}
 .step-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .step-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
-.hint{text-transform:none;letter-spacing:0;font-weight:400;opacity:.7;margin-left:6px}
+.lbl{font-size:13px;font-weight:600;color:var(--text)}
+.step-top .lbl{font-size:14px}
+.step-body .lbl{margin-top:4px}
+.hint{font-weight:400;color:var(--muted);margin-left:6px}
+.help{font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.45}
 .step-act{display:flex;align-items:center;gap:10px;margin-top:2px}
 
 /* state chips (model state per step) */
-.chip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);
+.chip{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);
   background:var(--panel2);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .chip.ok{border-color:var(--ok);color:var(--ok)}
 .chip.warn{border-color:var(--warn);color:var(--warn)}
@@ -56,25 +102,27 @@ textarea#caption,textarea#lyrics{margin-bottom:4px}
 
 /* generation phase stepper */
 .phases{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
-.phases li{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.phases li{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .phases li.on{border-color:var(--accent);color:var(--accent);font-weight:600}
 .phases li.past{border-color:var(--ok);color:var(--ok)}
 
 /* studio controls */
-.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
-.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.fld input{width:100%;box-sizing:border-box}
+.gen-row{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;align-items:end;margin-top:6px}
+.gen-row button.primary{margin:0;height:38px}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--text)}
+.fld input{width:100%;box-sizing:border-box;height:38px}
 .bar{margin-top:12px}
+.ref-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ref-row select{flex:1 1 140px}
 
 /* takes */
-.takes-card{min-height:180px;display:flex;flex-direction:column}
-.takes-card .lbl{margin-bottom:8px}
-#takes-list{flex:1;display:flex;flex-direction:column;gap:10px}
-#takes-list.empty{align-items:center;justify-content:center;color:var(--muted);font-size:12px;
-  border:1px dashed var(--line);border-radius:10px;min-height:120px}
-.take{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px}
+.takes-card .hint{font-size:13px}
+#takes-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+#takes-list.empty{align-items:center;justify-content:center;color:var(--muted);font-size:13px;
+  border:1px dashed var(--line);border-radius:10px;min-height:96px}
+.take{background:var(--panel2);border:1px solid var(--edge);border-radius:10px;padding:10px}
 .take audio{width:100%;height:34px;margin-top:6px}
-.take .meta{font-size:11px;opacity:.75;margin-top:4px;word-break:break-all}
+.take .meta{font-size:12px;color:var(--muted);margin-top:4px;word-break:break-all}
 .wave{display:block;width:100%;height:44px;cursor:pointer;border-radius:6px}
 
 /* status dots use the shared semantic tokens */
@@ -82,37 +130,10 @@ textarea#caption,textarea#lyrics{margin-bottom:4px}
 .dot.busy{background:var(--warn)}
 .dot.idle{background:var(--ok)}
 .dot.down{background:var(--err)}
+.dot.off{background:var(--muted)}
 @media (prefers-reduced-motion: no-preference){
   .dot.busy{animation:pulse 1.2s ease-in-out infinite}
 }
 @keyframes pulse{50%{opacity:.35}}
 
-@media (max-width:900px){.lab-grid{grid-template-columns:1fr}.flow li span{display:none}}
-
-/* help text + model panel */
-.help{font-size:11px;color:var(--muted);margin:2px 0 6px;line-height:1.45}
-.step-body .lbl{margin-top:4px}
-#models{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.mrow{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.mrow .dot{align-self:center}
-.mname{flex:1;min-width:0}
-.mrole{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-  border:1px solid var(--line);border-radius:4px;padding:1px 5px}
-.mbar{display:flex;align-items:center;gap:6px;min-width:110px;font-size:11px;color:var(--muted)}
-.mbar .bar{margin:0;width:70px}
-.dot.off{background:var(--muted)}
-
-/* ghost buttons + reference row (wrap: "Add track…" must never clip) */
-button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);
-  border-radius:6px;padding:5px 10px;font-size:12px;flex:none}
-button.ghost:hover{border-color:var(--accent)}
-.ref-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ref-row select{flex:1 1 140px}
-.takes-card .lbl{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-
-/* contrast fixes from ui-review (axe 4.14): white on accent = 5.6:1,
-   hints/help at 72% of --text ≈ 7:1 (was --muted 3.1:1) */
-:root{--on-accent:#ffffff}
-button.write{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-button.write:hover{filter:brightness(1.1)}
-.hint,.help{color:var(--text);opacity:.72}
+@media (max-width:900px){.lab-grid{grid-template-columns:1fr;grid-template-rows:none;grid-template-areas:"s1" "s2" "s3" "s4"}.flow li span{display:none}}

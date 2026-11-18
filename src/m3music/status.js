@@ -1,4 +1,4 @@
-/* M3 music — status: device bar, per-step model chips, device memory panel. */
+/* M3 music — status: device line in the header, per-step model chips. */
 window.M3 = window.M3 || {};
 M3.status = (function () {
   const $ = id => document.getElementById(id);
@@ -40,17 +40,12 @@ M3.status = (function () {
     else if (aceLoading) { cc.textContent = `composer loading ${Math.round(aceLoading.progress || 0)}%`; cc.className = 'chip load'; }
     else { cc.textContent = 'composer not loaded — first take loads it (~45s)'; cc.className = 'chip warn'; }
 
-    // device panel: what is in memory right now, with roles
-    const rows = [];
-    for (const id of st.loaded || []) {
-      const role = /acestep/i.test(id) ? 'composer' : (id === st.writer ? 'writer' : 'resident');
-      rows.push(`<div class="mrow"><span class="dot idle"></span><span class="mname"><b>${esc(short(id))}</b></span><span class="mrole">${role}</span></div>`);
+    // header: the writer/composer are named in their steps; here only other models loading
+    const other = (st.loading || []).filter(l => !/acestep/i.test(l.id));
+    if (other.length) {
+      el.insertAdjacentHTML('beforeend', other.map(l =>
+        `<span class="note">loading ${esc(short(l.id))} ${Math.round(l.progress || 0)}%</span>`).join(''));
     }
-    for (const l of st.loading || []) {
-      rows.push(`<div class="mrow"><span class="dot busy"></span><span class="mname"><b>${esc(short(l.id))}</b> <span class="note">loading into memory</span></span>` +
-        `<span class="mbar"><span class="bar"><i style="width:${Math.round(l.progress || 0)}%"></i></span>${Math.round(l.progress || 0)}%</span></div>`);
-    }
-    $('models').innerHTML = rows.join('') || '<span class="note">nothing in memory — the device loads models on demand</span>';
 
     M3.studio && M3.studio.syncFlow();
   }

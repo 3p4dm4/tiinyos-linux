@@ -3,7 +3,7 @@
  * come from m3_music.js, the window registers itself via attach() so progress
  * events land here too. Requires the Pocket reachable (see docs/network.md). */
 'use strict';
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, nativeTheme } = require('electron');
 const path = require('path');
 
 const SRC = path.join(__dirname, '..', 'src');
@@ -14,7 +14,7 @@ app.whenReady().then(() => {
     width: 1180, height: 820, minWidth: 860, minHeight: 560,
     title: 'Music Lab',
     icon: path.join(SRC, 'music-lab.png'),
-    backgroundColor: '#0f1115',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b0d12' : '#eef0f4', // = music.css --bg, no flash
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(SRC, 'm3_preload.js'),

@@ -21,6 +21,10 @@ M3.studio = (function () {
     document.querySelectorAll('#flow li').forEach((li, i) => {
       li.className = states[i] || '';
     });
+    // the numbered badge on each card mirrors the stepper (same number, same state)
+    document.querySelectorAll('.step-n').forEach((n, i) => {
+      n.className = 'step-n ' + (states[i] || '');
+    });
     // step ② chip: prompt readiness
     const pc = $('prompt-chip');
     if (caption) { pc.textContent = 'prompt ready'; pc.className = 'chip ok'; }

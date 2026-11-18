@@ -8,7 +8,7 @@
  * explicitly reports what is loaded and what AceStep would evict.
  */
 'use strict';
-const { BrowserWindow, ipcMain, dialog } = require('electron');
+const { BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -47,7 +47,7 @@ function open() {
     width: 1180, height: 820, minWidth: 860, minHeight: 560,
     title: 'Music Lab',
     icon: path.join(__dirname, '..', 'renderer', 'music-lab.png'),
-    backgroundColor: '#0f1115',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b0d12' : '#eef0f4', // = music.css --bg, no flash
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'm3_preload.js'),

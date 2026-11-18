@@ -1,10 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="28" fill="#111111"/>
-  <path d="M52 22 h24 M60 22 v22 L36 92 a12 12 0 0 0 11 18 h34 a12 12 0 0 0 11-18 L68 44 v-22"
-        fill="none" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="M44 78 L84 78" stroke="#fe8019" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="76" cy="92" r="7" fill="#fe8019"/>
-  <path d="M83 92 V68 l14 -4 v6 l-8 2.4 V92" fill="#fe8019"/>
-  <circle cx="52" cy="66" r="4" fill="#ffffff"/>
-  <circle cx="64" cy="60" r="4" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Music Lab: the Pocket with a sound wave; the orange tile reads on dark and light pages -->
+  <rect width="64" height="64" rx="14" fill="#ff9a3c"/>
+  <rect x="18" y="10" width="28" height="44" rx="6" fill="#1a0d00"/>
+  <path d="M23 32h3l2-7 3 14 3-10 2 6 2-3h3" fill="none" stroke="#ff9a3c"
+        stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
