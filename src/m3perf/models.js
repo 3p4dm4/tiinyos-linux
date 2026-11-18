@@ -4,7 +4,7 @@
  *    with size subtotals. Categories come from the device `type` field. */
 window.M3 = window.M3 || {};
 M3.models = (function () {
-  const USE_LABELS = { main: 'chat', systemone: 'decisione', embedding: 'embedding' };
+  const USE_LABELS = { main: 'chat', systemone: 'decision', embedding: 'embedding' };
   // device `type` -> display group (order = render order)
   const GROUPS = [
     ['Chat & vision', ['Image-Text-to-Text', 'Text Generation']],
@@ -21,7 +21,7 @@ M3.models = (function () {
   function pills(m) {
     const seen = new Set();
     (m.capabilities || []).forEach(c => { if (USE_LABELS[c]) seen.add(USE_LABELS[c]); });
-    if (m.supports_vision) seen.add('visione');
+    if (m.supports_vision) seen.add('vision');
     if (!seen.size) seen.add(m.type || 'n/a');
     return [...seen].map(l => `<span class="pill">${l}</span>`).join('');
   }
