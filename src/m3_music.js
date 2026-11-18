@@ -15,10 +15,21 @@ const fs = require('fs');
 const { BASE, P8800, jget, authKey } = require('./m3_device');
 const { classify } = require('./m3_activity');
 
-const OUT_DIR = path.join(os.homedir(), 'Musica', 'tiiny');
-const REFS_DIR = path.join(os.homedir(), 'Musica', 'references');
 const GEN_TIMEOUT_MS = 30 * 60 * 1000;
 const NOT_CHAT = /music|acestep|embed|rerank|ocr|asr|tts|whisper|bge|clip/i;
+
+/* ---------- user config: ~/.config/music-lab/config.json ----------
+ * { "outDir": "…", "refsDir": "…" } — defaults below; read once per window open
+ * so editing the file needs no code change (restart of the window is enough). */
+const CONFIG_PATH = path.join(os.homedir(), '.config', 'music-lab', 'config.json');
+function labCfg() {
+  let c = {};
+  try { c = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { /* defaults */ }
+  return {
+    outDir: c.outDir || path.join(os.homedir(), 'Musica', 'tiiny'),
+    refsDir: c.refsDir || path.join(os.homedir(), 'Musica', 'references'),
+  };
+}
 
 let win = null;
 let job = null; // { startedAt, session, phase, progress, note } — single generation at a time
@@ -131,13 +142,13 @@ async function runJob(cfg) {
     clearInterval(poll);
     job.phase = 'saving'; job.progress = 1; job.note = 'writing files';
     send('m3:music:progress', { ...job });
-    fs.mkdirSync(OUT_DIR, { recursive: true });
-    const wavPath = path.join(OUT_DIR, `${name}.wav`);
+    fs.mkdirSync(labCfg().outDir, { recursive: true });
+    const wavPath = path.join(labCfg().outDir, `${name}.wav`);
     fs.writeFileSync(wavPath, wav);
     let mp3Path = null;
     if (job.session) {
       try {
-        mp3Path = path.join(OUT_DIR, `${name}.mp3`);
+        mp3Path = path.join(labCfg().outDir, `${name}.mp3`);
         fs.writeFileSync(mp3Path, await downloadMp3(job.session));
       } catch (e) { mp3Path = null; console.error('[M3] mp3 download:', e.message); }
     }
@@ -168,13 +179,15 @@ function wire() {
         jget(`${P8800}/api/v1/npu/status`), jget(`${BASE}/v1/models`), jget(`${BASE}/api/v1/models/`),
       ]);
       const loaded = (models.data || []).map(x => x.id);
+      const storeList = (store.data || []).map(m => ({ id: m.id || m.model_id, status: m.status, progress: m.progress }));
       const cl = classify({
         util: npu.util_percent || 0,
-        models: (store.data || []).map(m => ({ id: m.id || m.model_id, status: m.status, progress: m.progress })),
+        models: storeList,
         loadedCount: loaded.length,
       });
+      const loading = storeList.filter(m => /loading/i.test(m.status || '') && (m.progress ?? 0) < 100);
       Object.assign(out, {
-        ok: true, util: npu.util_percent || 0, loaded,
+        ok: true, util: npu.util_percent || 0, loaded, loading,
         writer: await writerModel(), state: cl.label, busy: cl.busy || !!job,
       });
     } catch { /* defaults above */ }
@@ -204,19 +217,21 @@ function wire() {
   });
 
   ipcMain.handle('m3:music:refs', () => {
+    const dir = labCfg().refsDir;
     try {
-      return fs.readdirSync(REFS_DIR)
+      return fs.readdirSync(dir)
         .filter(f => /\.(mp3|wav|flac|m4a|ogg)$/i.test(f))
-        .map(f => ({ name: f, path: path.join(REFS_DIR, f), size: fs.statSync(path.join(REFS_DIR, f)).size }));
+        .map(f => ({ name: f, path: path.join(dir, f), size: fs.statSync(path.join(dir, f)).size }));
     } catch { return []; }
   });
 
-  // path guard: only files under ~/Musica may become references
+  ipcMain.handle('m3:music:config', () => ({ ...labCfg(), configPath: CONFIG_PATH }));
+
+  // path guard: only files inside the configured references dir may become references
   ipcMain.handle('m3:music:refb64', (_e, p) => {
     const real = fs.realpathSync(String(p));
-    if (!real.startsWith(fs.realpathSync(REFS_DIR) + path.sep) &&
-        !real.startsWith(fs.realpathSync(path.join(os.homedir(), 'Musica')) + path.sep)) {
-      throw new Error('reference must live under ~/Musica');
+    if (!real.startsWith(fs.realpathSync(labCfg().refsDir) + path.sep)) {
+      throw new Error('reference must live in the references folder');
     }
     return fs.readFileSync(real).toString('base64');
   });

@@ -54,3 +54,14 @@ button.primary:disabled{opacity:.5;cursor:default}
 @keyframes pulse{50%{opacity:.35}}
 
 @media (max-width:900px){.lab-grid{grid-template-columns:1fr}}
+
+/* help text + model panel */
+.help{font-size:11px;color:var(--muted);margin:2px 0 6px;line-height:1.45}
+.step-body .lbl{margin-top:4px}
+#models{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.mrow{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.mrow .dot{align-self:center}
+.mname{flex:1;min-width:0}
+.mbar{display:flex;align-items:center;gap:6px;min-width:110px;font-size:11px;color:var(--muted)}
+.mbar .bar{margin:0;width:70px}
+.dot.off{background:var(--muted)}
