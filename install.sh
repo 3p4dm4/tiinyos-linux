@@ -71,7 +71,7 @@ run sh -c "$ASAR_BIN extract '$TMP/app.asar' '$UNP'"
 
 # 3. feature files
 run cp "$HERE"/src/m3_performance.js "$HERE"/src/m3_device.js "$HERE"/src/m3_bench.js \
-       "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$UNP/out/main/"
+       "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$HERE"/src/m3_activity.js "$UNP/out/main/"
 run cp "$HERE"/src/performance.html "$HERE"/src/performance.css "$UNP/out/renderer/"
 run rm -rf "$UNP/out/renderer/m3perf"
 run cp -r "$HERE/src/m3perf" "$UNP/out/renderer/m3perf"
@@ -81,6 +81,7 @@ run python3 "$HERE/tools/patch_main.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_ball_blur.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_ball_click.py" "$UNP/out/main/index.js"
 run python3 "$HERE/tools/patch_skip_taskbar.py" "$UNP/out/main/index.js"
+run python3 "$HERE/tools/patch_activity.py" "$UNP/out/main/index.js"
 
 # 5. repack + restore unpacked flags
 run sh -c "$ASAR_BIN pack '$UNP' '$RES/app.asar.new'"
@@ -96,7 +97,7 @@ import json, sys
 d = open(sys.argv[1], "rb").read()
 n = int.from_bytes(d[12:16], "little")
 h = json.dumps(json.loads(d[16:16 + n]))
-for f in ("performance.html", "m3_performance.js", "m3_cp.js"):
+for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_activity.js"):
     assert f in h, f"{f} missing from header"
 assert "integrity" in h, "no integrity block"
 print("[tiinyos-linux] verify: header OK")
