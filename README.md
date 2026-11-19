@@ -7,7 +7,7 @@
 </div>
 
 <div align="center">
-  <img src="docs/assets/performance-window.png" alt="TiinyOS on Linux — performance window" width="800"/>
+  <img src="docs/assets/app-agent-store.png" alt="The official TiinyOS app running on Linux — agent store" width="700"/>
 </div>
 
 # TiinyOS — Linux
@@ -59,6 +59,13 @@ have rough edges on Linux — open an issue with the log from
 | **Agent store** | Browse, install, and update AI agents straight from the Linux app |
 | **Linux PC service** | `pcsvr`, the local service the app needs to see the device, which Tiiny ships only for Windows: ours is a small Rust binary (`pcsvr-rs/`) with a cap on every resource, built by `install.sh` — it replaced a Python shim that leaked threads, see [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md) |
 
+<table>
+  <tr>
+    <td align="center"><img src="docs/assets/performance-window.png" alt="Performance window" width="420"/><br/><sub>Performance window</sub></td>
+    <td align="center"><img src="docs/assets/control-panel.png" alt="Control Panel window, models page" width="420"/><br/><sub>Control Panel window</sub></td>
+  </tr>
+</table>
+
 ## Activity indicator
 
 The official app does not show when the Pocket is busy. The indicator asks the
@@ -74,7 +81,10 @@ and shows one state:
 | Unreachable | the device does not answer | same as Idle (green dot on hover) — only the text tells them apart | `TiinyOS — Device unreachable` |
 
 The dot sits on the top-right of the ball; hovering the ball shows the same
-text as its tooltip. Code: `src/m3_activity.js` (the `classify()` function is
+text as its tooltip:
+
+<img src="docs/assets/floating-ball-activity.png" alt="Floating Ball: green dot and the tooltip 'Idle · 3 model(s) in memory'"/>
+ Code: `src/m3_activity.js` (the `classify()` function is
 pure and decides the state), wired by `tools/patch_activity.py`.
 
 ## How it works
