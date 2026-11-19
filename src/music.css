@@ -26,9 +26,16 @@ body{font-size:14px}
 .lab-logo{width:48px;height:48px;border-radius:11px}
 .lab-head h1{margin:0;font-size:20px}
 .sub{color:var(--muted);font-size:13px;margin:0}
-.device{padding:9px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.device{padding:9px 14px;display:flex;flex-direction:column;gap:6px;min-width:min(420px,100%)}
+.device-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .device-state{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .device .note{margin:0}
+/* NPU memory: one segment per model in memory, coloured by role; the rest is free */
+.npu-bar{display:flex;height:10px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.npu-bar i{display:block;height:100%;border-right:2px solid var(--panel)}
+.npu-bar .seg-writer{background:var(--accent)}
+.npu-bar .seg-composer{background:var(--hot)}
+.npu-bar .loading{opacity:.55}
 
 /* page = one screen: header, stepper, then a 2x2 grid that takes the rest.
  * Columns are equal so stepper items 1-2 sit over the left column and 3-4 over the right. */
@@ -38,7 +45,7 @@ body{display:flex;flex-direction:column;min-height:0}
   grid-template-areas:"s1 s3" "s2 s4";gap:16px;margin-top:16px}
 #step1{grid-area:s1} #step2{grid-area:s2} #step3{grid-area:s3} #step4{grid-area:s4}
 .lab-grid > .card{min-width:0;min-height:0}
-#step1 textarea,#step2 textarea{flex:1 1 auto;min-height:72px}
+#step1 textarea,#step2 textarea{flex:1 1 auto;min-height:56px}
 
 /* fields: own surface + a border you can see */
 textarea{width:100%;box-sizing:border-box;background:var(--panel2);color:var(--text);
@@ -60,21 +67,38 @@ button.primary:disabled{opacity:.5;cursor:default}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);padding:6px 12px;font-size:13px;font-weight:600;flex:none}
 button.ghost:hover{border-color:var(--accent)}
 
-/* workflow stepper */
-.flow{display:flex;gap:0;margin:16px 0 0;padding:0;list-style:none}
-.flow li{display:flex;align-items:center;gap:8px;flex:1;min-width:0;color:var(--muted);font-size:14px;position:relative;padding:0 10px}
-.flow li b{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);
+/* the chain: two halves over the two columns; the model doing the work sits on the arrow */
+.flow{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+.seg{display:flex;align-items:center;gap:0;margin:0;padding:0;list-style:none;min-width:0}
+.seg li[data-s]{display:flex;align-items:center;gap:8px;flex:none;color:var(--muted);font-size:14px;cursor:pointer}
+.seg li[data-s] b{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);
   display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--panel)}
-.flow li::after{content:"";flex:1;height:1px;background:var(--line);margin-left:8px}
-.flow li:last-child::after{display:none}
-.flow li.done{color:var(--text)}
-.flow li.done b{background:var(--ok);border-color:var(--ok);color:var(--bg);font-size:0}
-.flow li.done b::before{content:"✓";font-size:13px}
-.flow li.active{color:var(--text);font-weight:600}
-.flow li.active b{border-color:var(--accent);color:var(--accent)}
+.seg li[data-s].done{color:var(--text)}
+.seg li[data-s].done b{background:var(--ok);border-color:var(--ok);color:var(--bg);font-size:0}
+.seg li[data-s].done b::before{content:"✓";font-size:13px}
+.seg li[data-s].active{color:var(--text);font-weight:600}
+.seg li[data-s].active b{border-color:var(--accent);color:var(--accent)}
 @media (prefers-reduced-motion: no-preference){
-  .flow li.active b{animation:pulse 1.6s ease-in-out infinite}
+  .seg li[data-s].active b{animation:pulse 1.6s ease-in-out infinite}
 }
+/* model node: arrow in, pick + live state, arrow out */
+.seg li.model{flex:1;min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:2px;
+  align-items:center;margin:0 10px;padding:6px 10px;border:1px solid var(--edge);border-radius:10px;
+  background:var(--panel);box-shadow:var(--shadow);position:relative}
+.seg li.model::before,.seg li.model::after{content:"";position:absolute;top:50%;width:10px;height:1.5px;background:var(--line)}
+.seg li.model::before{left:-11px}
+.seg li.model::after{right:-11px}
+.seg li.model label{font-size:12px;color:var(--muted);grid-row:1/3}
+.seg li.model select{font-size:13px;padding:3px 6px;min-width:0;width:100%}
+.mstate{font-size:12px;color:var(--muted);display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstate.ok{color:var(--ok)} .mstate.busy{color:var(--warn)} .mstate.warn{color:var(--warn)}
+.seg li.model[data-role=writer]{border-left:4px solid var(--accent)}
+.seg li.model[data-role=composer]{border-left:4px solid var(--hot)}
+.seg li.model.working{border-color:var(--hot)}
+.plan{font-size:13px;margin:2px 0 0;color:var(--text)}
+.plan:empty{display:none}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
 
 /* numbered steps */
 .step{display:flex;gap:12px}
@@ -93,7 +117,7 @@ button.ghost:hover{border-color:var(--accent)}
 .help{font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.45}
 .step-act{display:flex;align-items:center;gap:10px;margin-top:2px}
 
-/* state chips (model state per step) */
+/* state chip (prompt readiness) */
 .chip{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);
   background:var(--panel2);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .chip.ok{border-color:var(--ok);color:var(--ok)}
@@ -136,4 +160,4 @@ button.ghost:hover{border-color:var(--accent)}
 }
 @keyframes pulse{50%{opacity:.35}}
 
-@media (max-width:900px){.lab-grid{grid-template-columns:1fr;grid-template-rows:none;grid-template-areas:"s1" "s2" "s3" "s4"}.flow li span{display:none}}
+@media (max-width:900px){.flow{grid-template-columns:1fr}.lab-grid{grid-template-columns:1fr;grid-template-rows:none;grid-template-areas:"s1" "s2" "s3" "s4"}.seg li[data-s] span{display:none}}

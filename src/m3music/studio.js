@@ -18,7 +18,7 @@ M3.studio = (function () {
       takeNo ? 'done' : '',
     ];
     if (takeNo && !generating && caption) states[2] = 'done';
-    document.querySelectorAll('#flow li').forEach((li, i) => {
+    document.querySelectorAll('#flow li[data-s]').forEach((li, i) => {
       li.className = states[i] || '';
     });
     // the numbered badge on each card mirrors the stepper (same number, same state)
@@ -35,7 +35,7 @@ M3.studio = (function () {
 
   function wireFlowClicks() {
     const targets = { 1: 'idea', 2: 'caption', 3: 'btn-gen', 4: 'takes-list' };
-    document.querySelectorAll('#flow li').forEach(li => {
+    document.querySelectorAll('#flow li[data-s]').forEach(li => {
       li.addEventListener('click', () => {
         const el = $(targets[li.dataset.s]);
         if (el) { el.scrollIntoView({ block: 'center' }); if (el.focus) el.focus(); }
@@ -51,7 +51,7 @@ M3.studio = (function () {
     $('btn-write').disabled = true;
     $('writer-note').textContent = 'writing…';
     try {
-      const r = await window.m3.invoke('m3:music:writer', { idea, refName: ref ? ref.value : '' });
+      const r = await window.m3.invoke('m3:music:writer', { idea, refName: ref ? ref.value : '', model: $('writer-model').value });
       $('caption').value = r.caption;
       $('lyrics').value = r.lyrics;
       $('writer-note').textContent = `ok — ${M3.short(r.writer)}`;
@@ -64,7 +64,7 @@ M3.studio = (function () {
   let cfg = null;
   let takeIdx = 0, takeTotal = 1, genStart = 0, lastP = null, tick = null;
 
-  const PHASE_ORDER = ['queued', 'loading', 'generating', 'saving', 'done'];
+  const PHASE_ORDER = ['queued', 'loading', 'generating', 'saving', 'restoring', 'done'];
   function renderPhases(p) {
     const idx = PHASE_ORDER.indexOf(p.phase);
     document.querySelectorAll('#phases li').forEach(li => {
@@ -82,7 +82,13 @@ M3.studio = (function () {
       setNote('reading reference…');
       refBase64 = await window.m3.invoke('m3:music:refb64', refPath);
     }
-    cfg = { caption, lyrics: $('lyrics').value.trim(), seconds: +$('seconds').value || 180, refBase64 };
+    cfg = {
+      caption, lyrics: $('lyrics').value.trim(), seconds: +$('seconds').value || 180, refBase64,
+      composer: M3.status.composerId(), restore: false,
+      // models in memory now: reloaded after the LAST take only (no swap back-and-forth between takes)
+      restoreIds: $('restore').checked
+        ? ((M3.status.get() || {}).models || []).filter(m => m.running).map(m => m.id) : [],
+    };
     takeTotal = Math.max(1, +$('takes').value || 1);
     takeIdx = 0;
     runTake();
@@ -90,6 +96,7 @@ M3.studio = (function () {
 
   function runTake() {
     takeIdx += 1;
+    cfg.restore = cfg.restoreIds.length > 0 && takeIdx === takeTotal;
     genStart = Date.now();
     $('progress').classList.remove('hidden');
     $('btn-gen').disabled = true;

@@ -12,7 +12,7 @@ const { BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { BASE, P8800, jget, authKey } = require('./m3_device');
+const { BASE, P8800, jget, jpost, authKey } = require('./m3_device');
 const { classify } = require('./m3_activity');
 
 const GEN_TIMEOUT_MS = 30 * 60 * 1000;
@@ -28,6 +28,7 @@ function labCfg() {
   return {
     outDir: c.outDir || path.join(os.homedir(), 'Musica', 'tiiny'),
     refsDir: c.refsDir || path.join(os.homedir(), 'Musica', 'references'),
+    writer: c.writer || '', composer: c.composer || '', // chosen models, '' = automatic
   };
 }
 function saveCfg(patch) {
@@ -64,8 +65,54 @@ function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
-/* ---------- writer model: first loaded chat-capable model ---------- */
-async function writerModel() {
+/* ---------- model management: one model per role, loads and swaps made visible ----------
+ * The NPU holds a few models at a time (npu_usage = % of the chip). Loading one may evict
+ * another: the device answers that up front (unload_candidate) and we show it before acting.
+ * Roles come from the store `type`, so this works on any Pocket, whatever is installed. */
+const ROLE_OF = (type) => /music/i.test(type || '') ? 'composer'
+  : /^(text generation|image-text-to-text)$/i.test(type || '') ? 'writer' : null;
+const LOAD_TIMEOUT_MS = 15 * 60 * 1000; // as the tested callers: a cold big model can take minutes
+
+async function catalog() {
+  const s = await jget(`${BASE}/api/v1/models/?including_downloading=false`);
+  return (s.data || s || []).map(m => ({
+    id: m.id || m.model_id, status: m.status || '', type: m.type || '',
+    npu: m.npu_usage || 0, progress: m.progress, role: ROLE_OF(m.type),
+    running: /running/i.test(m.status || ''), loading: /loading/i.test(m.status || ''),
+  }));
+}
+
+// model ids carry a '/', kept as a path separator (same quoting as the tested callers)
+const mpath = (id) => String(id).split('/').map(encodeURIComponent).join('/');
+const runningIds = async () => new Set(((await jget(`${BASE}/v1/models`)).data || []).map(x => x.id));
+
+// what loading `id` would do: fits as is, or which running models the device unloads
+async function swapPlan(id) {
+  const u = await jget(`${BASE}/api/v1/models/${mpath(id)}/unload_candidate`);
+  return { id, evicts: u.model_id || [], npuRequired: u.npu_required, npuAvailable: u.npu_available };
+}
+
+// load and wait until it serves requests; onTick(progress 0..100) while loading.
+// Same sequence the 18/11 writer analysis and the Control Panel's ensure_loaded ran
+// against the Pocket: POST …/start, poll /v1/models, progress + failure from …/get_progress.
+async function ensureLoaded(id, onTick) {
+  if (!id || (await runningIds()).has(id)) return;
+  await jpost(`${BASE}/api/v1/models/${mpath(id)}/start`, {}, 180000);
+  const t0 = Date.now();
+  for (;;) {
+    await new Promise(r => setTimeout(r, 1500));
+    if ((await runningIds()).has(id)) return;
+    const g = await jget(`${BASE}/api/v1/models/${mpath(id)}/get_progress`, 20000).catch(() => ({}));
+    const st = String(g.status || '');
+    if (/fail|error/i.test(st)) throw new Error(`the Pocket could not load ${short(id)}: ${st}`);
+    if (onTick) onTick(typeof g.progress === 'number' && /load/i.test(st) ? g.progress : null);
+    if (Date.now() - t0 > LOAD_TIMEOUT_MS) throw new Error(`${short(id)} did not load in ${LOAD_TIMEOUT_MS / 60000} min`);
+  }
+}
+
+/* writer: the chosen model, else the chat model already in memory (no swap) */
+async function writerModel(wanted) {
+  if (wanted) return wanted;
   const m = await jget(`${BASE}/v1/models`);
   const c = (m.data || []).find(x =>
     !NOT_CHAT.test(x.id) && (x.supports_chat || /text-generation|image-text/i.test(x.type || '')));
@@ -116,8 +163,30 @@ async function runJob(cfg) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const name = `${slug(cfg.caption.slice(0, 40))}-${stamp}`;
   const seed = cfg.seed || Math.floor(Math.random() * 1e6);
+  const composer = cfg.composer || 'ACE-Step/AceStep-XL-Turbo';
   job = { startedAt: Date.now(), session: null, phase: 'queued', progress: 0, note: 'submitting', seed };
   send('m3:music:progress', { ...job });
+
+  // models to put back at the end (sent by the renderer, captured before the first take)
+  const snapshot = Array.isArray(cfg.restoreIds) ? cfg.restoreIds.map(String) : [];
+
+  try {
+    const plan = await swapPlan(composer).catch(() => ({ evicts: [] }));
+    job.phase = 'loading';
+    job.note = plan.evicts.length ? `loading ${short(composer)} · unloads ${plan.evicts.map(short).join(', ')}`
+      : `loading ${short(composer)}`;
+    send('m3:music:progress', { ...job });
+    await ensureLoaded(composer, p => {
+      job.progress = p == null ? job.progress : p / 100;
+      send('m3:music:progress', { ...job });
+    });
+  } catch (e) {
+    job.phase = 'error'; job.note = `composer: ${e.message || e}`;
+    send('m3:music:progress', { ...job });
+    job = null;
+    return;
+  }
+  job.progress = 0;
 
   const before = new Set((await sessionList()).map(s => s.session_id));
   job.phase = 'generating'; job.note = 'request sent (model may need to load)';
@@ -138,7 +207,7 @@ async function runJob(cfg) {
 
   try {
     const wav = await postMusic({
-      model: 'ACE-Step/AceStep-XL-Turbo',
+      model: composer,
       config: {
         caption: cfg.caption, lyrics: cfg.lyrics || '(instrumental)',
         reference_audio_base64: cfg.refBase64 || undefined,
@@ -160,19 +229,39 @@ async function runJob(cfg) {
         fs.writeFileSync(mp3Path, await downloadMp3(job.session));
       } catch (e) { mp3Path = null; console.error('[M3] mp3 download:', e.message); }
     }
-    job.phase = 'done';
-    send('m3:music:done', {
-      wav: wavPath, mp3: mp3Path, seconds: cfg.seconds, seed,
+    const done = {
+      wav: wavPath, mp3: mp3Path, seconds: cfg.seconds, seed, composer,
       elapsedSec: Math.round((Date.now() - job.startedAt) / 1000), session: job.session,
-    });
+    };
+    await restore(cfg.restore ? snapshot : []);
+    job.phase = 'done';
+    send('m3:music:done', done);
   } catch (e) {
     clearInterval(poll);
     job.phase = 'error'; job.note = String(e.message || e);
     send('m3:music:progress', { ...job });
+    await restore(cfg.restore ? snapshot : []).catch(() => {});
   } finally {
     job = null;
   }
 }
+
+// put back the models that were in memory before the take (the composer may have evicted them)
+async function restore(ids) {
+  const now = new Set((await catalog().catch(() => [])).filter(m => m.running).map(m => m.id));
+  for (const id of ids.filter(i => !now.has(i))) {
+    job.phase = 'restoring'; job.progress = 0; job.note = `reloading ${short(id)}`;
+    send('m3:music:progress', { ...job });
+    try {
+      await ensureLoaded(id, p => {
+        job.progress = p == null ? job.progress : p / 100;
+        send('m3:music:progress', { ...job });
+      });
+    } catch (e) { console.error('[M3] restore', id, e.message); }
+  }
+}
+
+function short(id) { return String(id || '').split('/').pop(); }
 
 /* ---------- IPC ---------- */
 let ipcWired = false;
@@ -194,17 +283,32 @@ function wire() {
         loadedCount: loaded.length,
       });
       const loading = storeList.filter(m => /loading/i.test(m.status || '') && (m.progress ?? 0) < 100);
+      const cat = await catalog();
       Object.assign(out, {
         ok: true, util: npu.util_percent || 0, loaded, loading,
         writer: await writerModel(), state: cl.label, busy: cl.busy || !!job,
+        // per role: installed models with memory share; `running` = on the chip now
+        models: cat.filter(m => m.role),
+        npuUsed: cat.filter(m => m.running).reduce((a, m) => a + m.npu, 0),
       });
     } catch { /* defaults above */ }
     return out;
   });
 
-  ipcMain.handle('m3:music:writer', async (_e, { idea, refName }) => {
-    const model = await writerModel();
-    if (!model) throw new Error('no chat model loaded — load one from the Performance window first');
+  // what loading this model would unload (asked to the device, never guessed)
+  ipcMain.handle('m3:music:plan', (_e, id) => swapPlan(String(id)));
+
+  // remember the chosen model per role (config file, like the folders)
+  ipcMain.handle('m3:music:choose', (_e, { role, id }) => {
+    if (!['writer', 'composer'].includes(role)) throw new Error('bad role');
+    saveCfg({ [role]: String(id || '') || undefined });
+    return labCfg();
+  });
+
+  ipcMain.handle('m3:music:writer', async (_e, { idea, refName, model: wanted }) => {
+    const model = await writerModel(wanted);
+    if (!model) throw new Error('no chat model loaded — pick a writer model');
+    await ensureLoaded(model, p => send('m3:music:writerload', { model, progress: p }));
     const body = {
       model, stream: false, temperature: 0.7, max_tokens: 1200,
       chat_template_kwargs: { enable_thinking: false },

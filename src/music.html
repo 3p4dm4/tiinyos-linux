@@ -16,20 +16,38 @@
       <div class="sub">Describe a song, get audio from your Pocket</div>
     </div>
   </div>
-  <!-- device state only: which model does what is shown in the step it serves (chips) -->
+  <!-- device: state + NPU memory split by model (a swap shows up here as it happens) -->
   <section class="card device" id="device-card" aria-labelledby="device-lbl"
-           title="Generation runs on the Pocket's NPU, no cloud. One big model at a time: the device swaps by itself when you generate (~1 min).">
-    <span class="lbl" id="device-lbl">Pocket</span>
-    <span class="device-state" id="status"><span class="note">checking device…</span></span>
-    <span class="note">local NPU · no cloud</span>
+           title="Everything runs on the Pocket's NPU, no cloud. The chip holds a few models at a time: loading one may unload another.">
+    <div class="device-top">
+      <span class="lbl" id="device-lbl">Pocket</span>
+      <span class="device-state" id="status"><span class="note">checking device…</span></span>
+    </div>
+    <div class="npu" aria-label="NPU memory by model">
+      <div class="npu-bar" id="npu-bar"></div>
+      <div class="npu-legend note" id="npu-legend"></div>
+    </div>
   </section>
 </header>
 
-<nav aria-label="Workflow">
-  <ol class="flow" id="flow">
+<!-- the chain: each half sits over its column; the model doing the work is on the arrow -->
+<nav aria-label="Workflow" class="flow" id="flow">
+  <ol class="seg">
     <li data-s="1"><b>1</b><span>Idea</span></li>
+    <li class="model" data-role="writer">
+      <label for="writer-model">writer model</label>
+      <select id="writer-model"><option value="">automatic — chat model in memory</option></select>
+      <span class="mstate" id="writer-state">…</span>
+    </li>
     <li data-s="2"><b>2</b><span>Prompt</span></li>
+  </ol>
+  <ol class="seg">
     <li data-s="3"><b>3</b><span>Generate</span></li>
+    <li class="model" data-role="composer">
+      <label for="composer-model">composer model</label>
+      <select id="composer-model"></select>
+      <span class="mstate" id="composer-state">…</span>
+    </li>
     <li data-s="4"><b>4</b><span>Takes</span></li>
   </ol>
 </nav>
@@ -41,7 +59,6 @@
       <div class="step-body">
         <div class="step-top">
           <label class="lbl" for="idea">Describe what you want to hear</label>
-          <span class="chip" id="writer-chip">checking writer model…</span>
         </div>
         <p class="help">Plain words, any language: mood, instruments, rhythm, voices. The writer model turns it into the prompt of step 2.</p>
         <textarea id="idea" rows="3" placeholder="e.g. nordic song, wordless female vocalise, drums slowly building to a wall of sound"></textarea>
@@ -72,7 +89,6 @@
       <div class="step-body">
         <div class="step-top">
           <span class="lbl">Generate</span>
-          <span class="chip" id="composer-chip">checking composer…</span>
         </div>
         <label class="lbl" for="refs">Reference track, optional mood anchor <span class="hint" id="refs-hint"></span></label>
         <div class="ref-row">
@@ -84,13 +100,16 @@
           <label class="fld"><span>Takes</span><input id="takes" type="number" value="1" min="1" max="4"></label>
           <button type="button" id="btn-gen" class="primary">Generate</button>
         </div>
-        <p class="help">A <b>take</b> = the same prompt with a different seed. Make 2–4, keep the best.</p>
+        <p class="help" title="A take = the same prompt with a different seed. Make 2–4, keep the best.">Takes: same prompt, new seed each.</p>
+        <p class="plan" id="swap-plan" aria-live="polite"></p>
+        <label class="check"><input type="checkbox" id="restore" checked> Reload the models that were in memory when done</label>
         <div id="progress" class="hidden">
           <ol class="phases" id="phases">
             <li data-p="queued">Queued</li>
-            <li data-p="loading">Composer loading</li>
+            <li data-p="loading">Loading composer</li>
             <li data-p="generating">Composing</li>
             <li data-p="saving">Saving</li>
+            <li data-p="restoring">Reloading models</li>
             <li data-p="done">Done</li>
           </ol>
           <div class="bar"><i id="pbar"></i></div>
