@@ -7,6 +7,7 @@
     M3.status.init();
     M3.models.init();
     M3.usage.init();
+    M3.power.init();
     M3.data.start();
     if (window.m3 && window.m3.ready) window.m3.ready();
   }
