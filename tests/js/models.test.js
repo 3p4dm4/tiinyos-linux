@@ -96,7 +96,10 @@ test('ensureLoaded is a no-op for a model already in memory', async () => {
 });
 
 test('a slow load reports progress ticks through onProgress', async () => {
-  const base = await spawnFake('slow_load');
+  // speed 10 -> a 20 s simulated load lasts 2 s of wall time, so the 50 ms
+  // polling sees several ticks even on a loaded machine (at speed 50 the load
+  // is 0.4 s and the first poll can land near 100: rare flake).
+  const base = await spawnFake('slow_load', 10);
   const models = freshModels(base);
   const seen = [];
   await models.ensureLoaded('tiiny/embed-small', (p) => p != null && seen.push(p), { pollMs: 50 });

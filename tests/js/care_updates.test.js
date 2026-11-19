@@ -267,3 +267,28 @@ test('restore waits while an update runs: after a cut, the update finishes first
   assert.ok(log.includes('restored'), 'embed-small was restored by this PC');
   ctl.stop();
 });
+
+test('installedModels: inventory with inMemory, kept and need_update flags', async () => {
+  const ctl = await spawnCtl('update_available');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'care-u6-')); dirs.push(dir);
+  const eng = freshEngines(ctl.base, dir);
+  startEngine(eng, dir);
+  await eng.care._pollOnce(); // snapshot [cogito]
+  await ctl.send({ op: 'load', id: E });
+  await sleep(1700); // let the load finish
+  await eng.care._pollOnce();
+  eng.store.setKept([E]);
+
+  const { models } = await eng.care.installedModels();
+  assert.ok(models.length >= 3, 'the whole store is listed');
+  const cog = models.find((m) => m.id === C);
+  const emb = models.find((m) => m.id === E);
+  assert.equal(cog.inMemory, true);
+  assert.equal(cog.kept, false);
+  assert.equal(cog.need_update, true);
+  assert.equal(emb.inMemory, true);
+  assert.equal(emb.kept, true);
+  assert.equal(emb.need_update, false);
+  assert.equal(emb.version_label, 'v0.9.0');
+  ctl.stop();
+});

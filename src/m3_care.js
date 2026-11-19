@@ -669,6 +669,24 @@ function _reset() {
 // Register the m3:care:* IPC (contract table) and push m3:care:changed to the
 // Device window. Electron is required here, not at module top level, so the
 // core stays testable under bare node. Called once by m3_performance.
+// Inventory for the Models tab: every installed model with its update
+// state, whether it is in memory, and whether this PC keeps it loaded.
+async function installedModels() {
+  const [list, have] = await Promise.all([storeList(),
+    runningIds().catch(() => new Set())]);
+  const care = S.store.care();
+  const kept = new Set(care.kept);
+  return { models: list.map((e) => ({
+    id: e.id, display_name: e.display_name || e.name || '', type: e.type || '',
+    status: e.status || '', progress: e.progress ?? 0,
+    total_size: e.total_size || 0, npu_usage: e.npu_usage ?? 0,
+    version: e.version || '', version_label: e.version_label || '',
+    need_update: !!e.need_update,
+    update_title: e.update_title || '', update_desc: e.update_desc || '',
+    kept: kept.has(e.id), inMemory: have.has(e.id),
+  }))};
+}
+
 function wire(win) {
   const { ipcMain } = require('electron'); // lazy on purpose
   S.win = win || null;
@@ -677,24 +695,50 @@ function wire(win) {
     return ipcMain.handle.bind(ipcMain, name);
   };
   once('m3:care:state')(() => state());
+  once('m3:care:models')(() => installedModels());
   once('m3:care:usage')((_e, arg) => usage(arg && arg.weekStart));
   once('m3:care:appUsage')((_e, arg) => appUsage(arg && arg.weekStart));
-  once('m3:care:setAcPower', (_e, arg) => setAcPower(!!(arg && arg.on)));
-  once('m3:care:setPolicy', async (_e, arg) => {
+  once('m3:care:log')((_e, arg) => S.store.readLog(arg && arg.since));
+  once('m3:care:setAcPower')(async (_e, arg) =>
+    ({ acPower: await setAcPower(!!(arg && arg.on)) }));
+  once('m3:care:setPolicy')(async (_e, arg) => {
     const reload = String((arg && arg.reload) || 'off');
+    if (!['off', 'kept', 'all'].includes(reload)) throw new Error('bad policy: ' + reload);
     S.store.setPolicy(reload);
     return { reload };
   });
-  once('m3:care:keep', async (_e, arg) => {
+  once('m3:care:keep')(async (_e, arg) => {
     const care = S.store.care();
     const kept = new Set(care.kept);
-    if (arg && arg.on) kept.add(String(arg.id)); else kept.delete(String(arg.id));
+    const id = String((arg && arg.id) || '');
+    if (arg && arg.on) kept.add(id); else kept.delete(id);
     S.store.setKept([...kept]);
     return { kept: S.store.care().kept };
   });
-  once('m3:care:update', (_e, arg) => update(String((arg && arg.id) || '')));
-  once('m3:care:updateAll', () => updateAll());
-  once('m3:care:stopTask', (_e, arg) => ({ ok: stopTask(String((arg && arg.id) || '')) }));
+  once('m3:care:load')(async (_e, arg) => {
+    const id = String((arg && arg.id) || '');
+    markOwn(id);
+    await ensureLoaded(id);
+    return { ok: true };
+  });
+  once('m3:care:unload')(async (_e, arg) => {
+    const id = String((arg && arg.id) || '');
+    markOwn(id);
+    await ensureUnloaded(id);
+    return { ok: true };
+  });
+  once('m3:care:update')(async (_e, arg) => {
+    const t = await update(String((arg && arg.id) || ''));
+    return { taskId: t.id };
+  });
+  once('m3:care:updateAll')(async () => {
+    const t = await updateAll();
+    return { taskIds: t.map((x) => x.id) };
+  });
+  once('m3:care:stopTask')((_e, arg) => {
+    const id = String((arg && (arg.taskId != null ? arg.taskId : arg.id)) || '');
+    return { ok: stopTask(id) };
+  });
   if (win && win.webContents) {
     win.webContents.once('did-finish-load', () => {
       pushIfChanged(); S.lastPush = 0; // deliver the first state right away
@@ -708,6 +752,6 @@ module.exports = {
   _S: S, _pollOnce: pollOnce, _startRestore: startRestore,
   _newTask: newTask, _stopTask: stopTask, _state: state, _reset,
   getAcPower, setAcPower, usage, appUsage, mondayOf, logEvent, markOwn,
-  currentTask, state, start, wire,
+  currentTask, state, start, wire, installedModels,
   update, updateAll, maybeResume,
 };

@@ -2,7 +2,8 @@
  *
  * Files (all in one base dir, default ~/.config/tiinyos-linux/):
  *   care.json         policy {reload: off|kept|all}, kept model ids, last
- *                     in-memory snapshot (order = last-loaded first)
+ *                     in-memory snapshot (ids in load order, oldest first — the
+ *                     restore order)
  *   care-journal.json the update in flight: {model, from, to, step, wasLoaded,
  *                     startedAt, queue} — written BEFORE each step so a power
  *                     cut or app restart can resume it
@@ -31,7 +32,7 @@ function defaultCare() {
   return {
     policy: { reload: 'off' },
     kept: [],
-    lastSnapshot: null, // { t: ms, ids: [id, ...] } last-loaded first
+    lastSnapshot: null, // { t: ms, ids: [id, ...] } load order, oldest first
   };
 }
 
@@ -81,8 +82,8 @@ function createStore(baseDir) {
     return saveCare({ policy: { reload } });
   }
   const setKept = (ids) => saveCare({ kept: [...new Set((ids || []).map(String))].sort() });
-  // ids kept in the order the caller gives them (the engine maintains
-  // last-loaded first — the restore order); the store only dedupes.
+  // ids kept in the order the caller gives them (the engine maintains load
+  // order, oldest first — the restore order); the store only dedupes.
   const setLastSnapshot = (t, ids) =>
     saveCare({ lastSnapshot: { t, ids: [...new Set((ids || []).map(String))] } });
 
