@@ -254,16 +254,25 @@ fn must_close(req: &Request) -> bool {
 }
 
 fn log_request(req: &Request) {
-    let body: String = String::from_utf8_lossy(&req.body)
-        .chars()
-        .take(200)
-        .collect();
-    let line = if req.method == "POST" {
-        format!("POST {} body={}", req.path, body)
-    } else {
-        format!("{} {}", req.method, req.path)
+    log::global().log(&request_log_line(req));
+}
+
+/// One log line per request. Bodies are never written: the app posts the
+/// device auth key (`/account/update_auth_key`) on every reconnect, so a body
+/// in the log is a secret on disk. Only the size and the top-level JSON key
+/// names are kept — enough to see what an unknown endpoint expects.
+fn request_log_line(req: &Request) -> String {
+    if req.method != "POST" {
+        return format!("{} {}", req.method, req.path);
+    }
+    let keys = match req.as_json_object() {
+        Ok(Some(crate::json::Value::Obj(fields))) => {
+            let names: Vec<&str> = fields.iter().map(|(k, _)| k.as_str()).collect();
+            format!(", keys: {}", names.join(","))
+        }
+        _ => String::new(),
     };
-    log::global().log(&line);
+    format!("POST {} ({} bytes{})", req.path, req.body.len(), keys)
 }
 
 fn route(req: &Request, device: &Device) -> Vec<u8> {
@@ -346,5 +355,50 @@ fn reason(code: u16) -> &'static str {
         404 => "Not Found",
         500 => "Internal Server Error",
         _ => "OK",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn post(path: &str, body: &str) -> Request {
+        Request {
+            method: "POST".into(),
+            path: path.into(),
+            query: String::new(),
+            version: "HTTP/1.1".into(),
+            headers: vec![],
+            body: body.as_bytes().to_vec(),
+        }
+    }
+
+    #[test]
+    fn post_log_line_keeps_key_names_never_values() {
+        let secret = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0";
+        let line = request_log_line(&post(
+            "/account/update_auth_key",
+            &format!(r#"{{"device_id":"TESTSN000000000001","auth_key":"{secret}"}}"#),
+        ));
+        assert!(!line.contains(secret), "secret leaked: {line}");
+        assert!(!line.contains("TESTSN000000000001"), "value leaked: {line}");
+        assert!(line.contains("keys: device_id,auth_key"), "{line}");
+        assert!(
+            line.starts_with("POST /account/update_auth_key ("),
+            "{line}"
+        );
+    }
+
+    #[test]
+    fn non_json_post_logs_only_the_size() {
+        let line = request_log_line(&post("/x", "auth_key=hunter2"));
+        assert_eq!(line, "POST /x (16 bytes)");
+    }
+
+    #[test]
+    fn get_logs_method_and_path() {
+        let mut r = post("/status", "");
+        r.method = "GET".into();
+        assert_eq!(request_log_line(&r), "GET /status");
     }
 }
