@@ -115,10 +115,10 @@ M3.power = (function () {
     s4.appendChild(ot); p.appendChild(s4);
 
     // fail-soft note (shown when the engine is absent)
-    R.note = el('p', 'note'); R.note.id = 'power-note'; R.note.hidden = true; p.appendChild(R.note);
+    var note = el('p', 'note'); note.id = 'power-note'; note.hidden = true; p.appendChild(note);
 
-    R = { p: p, ac: ac, acState: acState, radios: [0, 1, 2].map(function (i) { return document.getElementById('pr' + i); }),
-      keepT: kt.querySelector('tbody'), keepH: k2,
+    R = { p: p, note: note, ac: ac, acState: acState, radios: [0, 1, 2].map(function (i) { return document.getElementById('pr' + i); }),
+      keepB: kt.querySelector('tbody'), keepH: k2,
       restoreNote: rn, restoreStop: stop, restoreB: rt.querySelector('tbody'),
       outCount: on, outAdvice: adv, outB: ot.querySelector('tbody') };
     built = true;

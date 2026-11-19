@@ -37,12 +37,13 @@ M3.data = (function () {
     });
   }
 
-  /* ---- store: total bytes of installed models (for the Disk KPI detail) ---- */
+  /* ---- store: total bytes of installed models (for the Disk KPI detail).
+   * m3:store returns an ARRAY of {id,name,type,status,size,...}. ---- */
   function pollStore() {
-    invoke('m3:store').then(function (r) {
-      if (!r || !r.models) return;
-      M3.storeBytes = r.models.reduce(function (a, m) { return a + (m.size_bytes || 0); }, 0);
-      M3.bus.emit('store', r);
+    invoke('m3:store').then(function (arr) {
+      if (!Array.isArray(arr)) return;
+      M3.storeBytes = arr.reduce(function (a, m) { return a + (m.size || 0); }, 0);
+      M3.bus.emit('store', arr);
     }).catch(function () { /* store is best-effort */ });
   }
 
@@ -56,7 +57,7 @@ M3.data = (function () {
 
   /* ---- header ---- */
   function renderHeader(careState) {
-    var dv = document.getElementById('device-version');
+    var dv = document.getElementById('dev-ver');
     if (careState && careState.device) {
       dv.textContent = 'p8800 \u00b7 firmware ' + (careState.device.firmware || '?');
     } else if (window.m3 && window.m3.device) {

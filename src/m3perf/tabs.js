@@ -22,53 +22,13 @@ M3.bus = (function () {
   };
 })();
 
-(function () {
+/* ---- persistent strip: reach + the one request + the one running task ---- */
+M3.strip = (function () {
   var h = M3.h;
-
-  /* ---- theme: system -> light -> dark (data-theme on <html>) ---- */
-  var order = ['system', 'light', 'dark'], cur = 0;
-  var themeBtn = document.getElementById('theme');
-  function applyTheme() {
-    var root = document.documentElement;
-    if (order[cur] === 'system') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', order[cur]);
-    themeBtn.textContent = 'Theme: ' + order[cur];
-    themeBtn.setAttribute('aria-label', 'Theme: ' + order[cur] + '. Press to change');
-  }
-  themeBtn.addEventListener('click', function () { cur = (cur + 1) % order.length; applyTheme(); });
-
-  /* ---- tabs: click + arrow keys, roving tabindex, hidden panels ---- */
-  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
-  function select(tab, focus) {
-    tabs.forEach(function (t) {
-      var on = t === tab;
-      t.setAttribute('aria-selected', on ? 'true' : 'false');
-      t.tabIndex = on ? 0 : -1;
-      var panel = document.getElementById(t.getAttribute('aria-controls'));
-      if (panel) panel.hidden = !on;
-    });
-    if (focus) tab.focus();
-    M3.bus.emit('tab', tab.id);
-  }
-  tabs.forEach(function (t, i) {
-    t.addEventListener('click', function () { select(t); });
-    t.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowRight') { select(tabs[(i + 1) % tabs.length], true); e.preventDefault(); }
-      else if (e.key === 'ArrowLeft') { select(tabs[(i - 1 + tabs.length) % tabs.length], true); e.preventDefault(); }
-    });
-  });
-  // any button that names a tab jumps to it (the strip "Details" button, etc.)
-  Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
-    b.addEventListener('click', function () {
-      var t = document.getElementById(b.getAttribute('data-tab'));
-      if (t) select(t);
-    });
-  });
-
-  /* ---- persistent strip ---- */
   var DETAILS_TAB = { restore: 'tab-power', update: 'tab-models', download: 'tab-status', benchmark: 'tab-status' };
-  M3.strip = {
+  return {
     render: function (s) {
+      s = s || {};
       var now = s.now || Date.now();
       // reach word + detail (word is the only thing that carries severity colour)
       var reachEl = document.getElementById('strip-reach');
@@ -107,8 +67,56 @@ M3.bus = (function () {
       }
     }
   };
+})();
 
-  // first paint: the reach is unknown until the first read lands
-  M3.strip.render({ reach: null, running: [], tasks: [] });
-  applyTheme();
+/* ---- tabs + theme: wired on init() (called by main.js after the DOM is ready) ---- */
+M3.tabs = (function () {
+  var order = ['system', 'light', 'dark'], cur = 0;
+  var themeBtn = document.getElementById('theme');
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+
+  function applyTheme() {
+    var root = document.documentElement;
+    if (order[cur] === 'system') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', order[cur]);
+    themeBtn.textContent = 'Theme: ' + order[cur];
+    themeBtn.setAttribute('aria-label', 'Theme: ' + order[cur] + '. Press to change');
+  }
+
+  function select(tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      var panel = document.getElementById(t.getAttribute('aria-controls'));
+      if (panel) panel.hidden = !on;
+    });
+    if (focus) tab.focus();
+    M3.bus.emit('tab', tab.id);
+  }
+
+  function init() {
+    themeBtn.addEventListener('click', function () { cur = (cur + 1) % order.length; applyTheme(); });
+    applyTheme();
+
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { select(tabs[(i + 1) % tabs.length], true); e.preventDefault(); }
+        else if (e.key === 'ArrowLeft') { select(tabs[(i - 1 + tabs.length) % tabs.length], true); e.preventDefault(); }
+      });
+    });
+    // any button that names a tab jumps to it (the strip "Details" button, etc.)
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
+      b.addEventListener('click', function () {
+        var t = document.getElementById(b.getAttribute('data-tab'));
+        if (t) select(t);
+      });
+    });
+
+    // first paint: the reach is unknown until the first read lands
+    M3.strip.render({ reach: null, running: [], tasks: [] });
+  }
+
+  return { init: init };
 })();

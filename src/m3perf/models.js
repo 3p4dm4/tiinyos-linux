@@ -45,6 +45,7 @@ M3.models = (function () {
     var h1 = el('h3'); h1.id = 'h-inmem'; h1.textContent = 'In memory (0)'; s1.appendChild(h1);
     var t1 = el('table'); t1.setAttribute('aria-labelledby', 'h-inmem');
     t1.appendChild(thead([{ t: 'Model' }, { t: 'Context (K)', right: 1 }, { t: 'Use' }, { t: 'Status' }, { t: 'Last benchmark' }, { t: '', right: 1 }]));
+    t1.appendChild(el('tbody'));
     t1.querySelector('tbody').id = 'inmem-m';
     s1.appendChild(t1); p.appendChild(s1);
 
@@ -52,6 +53,7 @@ M3.models = (function () {
     var h2 = el('h3'); h2.id = 'h-inst'; h2.textContent = 'Installed on device (0)'; s2.appendChild(h2);
     var t2 = el('table'); t2.setAttribute('aria-labelledby', 'h-inst');
     t2.appendChild(thead([{ t: 'Model' }, { t: 'Size', right: 1 }, { t: 'Use' }, { t: 'Version' }, { t: 'Status' }, { t: '', right: 1 }]));
+    t2.appendChild(el('tbody'));
     t2.querySelector('tbody').id = 'inst-m';
     s2.appendChild(t2); p.appendChild(s2);
 
@@ -141,13 +143,15 @@ M3.models = (function () {
     base.forEach(function (m) {
       var a = byId[m.id] || {};
       var updating = a.update_state === 'updating' || (a.download_progress != null && a.installed);
+      var running = m.status === 'running';
       var tr = document.createElement('tr');
-      var name = el('td', 'name'); name.textContent = h.shortName(m.id); name.title = m.id; tr.appendChild(name);
-      tr.appendChild(el('td', 'right num', m.size_bytes ? h.fmtBytes(m.size_bytes) : '—'));
+      var name = el('td', 'name'); name.textContent = m.name || h.shortName(m.id); name.title = m.id; tr.appendChild(name);
+      var sz = m.size || m.size_bytes;
+      tr.appendChild(el('td', 'right num', sz ? h.fmtBytes(sz) : '—'));
       var use = el('td'); h.useTags(m).forEach(function (t) { use.appendChild(el('span', 'tag', t)); }); tr.appendChild(use);
       tr.appendChild(el('td', 'num', a.version ? 'v' + a.version : '—'));
       var status = el('td', 'state');
-      status.appendChild(st(updating ? 'Updating' : 'Installed', updating ? 'warn' : 'ok'));
+      status.appendChild(st(updating ? 'Updating' : running ? 'In memory' : 'Installed', updating ? 'warn' : running ? 'ok' : 'idle'));
       if (updating && a.download_progress != null) status.appendChild(document.createTextNode(' ' + Math.round(a.download_progress * 100) + '%'));
       tr.appendChild(status);
       var act = el('td', 'right');
@@ -187,7 +191,7 @@ M3.models = (function () {
         last.inmem = { ok: true, models: models || [] }; render();
       }).catch(function (e) { last.inmem = { ok: false, error: String(e.message || e) }; render(); });
       window.m3.invoke('m3:store').then(function (r) {
-        last.store = { ok: true, models: (r && r.models) || [] }; render();
+        last.store = { ok: true, models: Array.isArray(r) ? r : [] }; render();
       }).catch(function (e) { last.store = { ok: false, error: String(e.message || e) }; render(); });
       window.m3.invoke('m3:care:models').then(function (m) {
         last.careModels = m || null; render();
