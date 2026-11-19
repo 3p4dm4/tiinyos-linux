@@ -34,7 +34,7 @@ PCSVR_DEVICE_IP=172.20.31.109 ./pcsvr --port 60000
 The device identity is **never hardcoded**: at startup and every
 `ProbeIntervalMs` the service reads
 `http://<DeviceIp>:<DeviceDiscovery.HTTPPort>/device.json` and builds its
-device snapshot from the answer (serial, uuid, name, ip). The `Shim.*` identity
+device snapshot from the answer (serial, name, ip; a uuid too if the device ever sends one). The `Shim.*` identity
 keys in the config are only fallbacks for a device that does not answer —
 leave them empty and the values come from the device itself.
 `pcsvr-api.yaml.example` shows the file; the real one is per machine and is
@@ -162,19 +162,22 @@ curl -s localhost:60000/status
 
 ## Device fields: verified vs assumed
 
-No Pocket was touched while writing this (evaluation in progress), so the
-device-side facts come from the device docs, not from a live capture:
+Written without a device (an evaluation was running), then checked on a real
+Tiiny Pocket over USB on 2026-11-19 after the install (key names of
+`device.json` read, values not recorded):
 
 | fact | status |
 |---|---|
 | `GET http://<ip>:39218/device.json`, no auth, is the reachability probe | **verified** in the device docs (`DEVICE-API.md`) and in what the Python shim did |
 | device.json carries name, IPv4/IPv6, `usb.network`, `device_ip`, `host_ip`, metadata URLs | **verified** in the device docs |
-| device.json carries a serial and a uuid usable as `device_id` | **assumed** — not documented. The code tries `serial_number`/`serial`/`device_serial`/`sn` and `uuid`/`device_uuid`/`guid`; if none is present it falls back to `Shim.DeviceId` / `Shim.Uuid` from the config, so a serial-less device.json still produces the identity the app expects |
+| device.json carries the serial as `serial_number` | **verified** on a real device: the service's `device_id` equals it, and the app connects with it (no "PC service snapshot unavailable" after the switch) |
+| device.json carries a uuid | **verified absent** on a real device (identity-like keys: `device_name`, `serial_number`, `hostname`, `service.instance_name`). The `uuid` in the snapshot is empty unless `Shim.Uuid` is set; the code still tries `uuid`/`device_uuid`/`guid` in case a firmware adds it |
 | the `device_id` the app compares is the **serial** (`TNYM…`), not the uuid | **verified** from the shim's own comment and the app's connect flow |
 | the snapshot field names (`device_ip`, `local`, `usb`, `reachable`, `connection_type`, `is_activated`, `addresses`, `preferred_endpoints`, `last_seen_at`, `metadata_url`) | copied from the Python shim, which is what the app was seen to accept |
 
-If a real device turns out to answer device.json with different key names, the
-only file to touch is `src/device.rs` (`identity_from`).
+If a device answers device.json with different key names, the only file to
+touch is `src/device.rs` (`identity_from`). Not checked yet: whether the app
+needs a uuid in any flow (with `Shim.Uuid` empty, on a fresh install).
 
 ## Known limits
 
