@@ -33,12 +33,19 @@ M3.status = (function () {
     const el = $('status');
     if (!st.ok) {
       el.innerHTML = '<span class="dot down"></span><b>Device unreachable</b>';
+      // a foreign holder still blocks the device: disable only, never re-enable
+      // (our own in-flight job keeps the button disabled until its done/error)
+      if (st.lockedBy) $('btn-gen').disabled = true;
       M3.studio && M3.studio.syncFlow();
       return;
     }
     el.innerHTML =
       `<span><span class="dot ${st.busy ? 'busy' : 'idle'}"></span><b>${esc(st.state)}</b></span>` +
-      (st.generating ? '<span class="note"><b>generation running</b></span>' : '');
+      (st.generating ? '<span class="note"><b>generation running</b></span>' : '') +
+      (st.lockedBy ? `<span class="note"><b>generating in another window (pid ${esc(st.lockedBy)})</b></span>` : '');
+    // a foreign holder blocks the device (and our own job, while it runs):
+    // keep Generate out of the hands of both until it releases
+    $('btn-gen').disabled = !!(st.lockedBy || st.generating);
     renderNpu();
     renderPickers();
     renderNode('writer', writerId());
@@ -76,7 +83,7 @@ M3.status = (function () {
 
   function writerId() {
     if ($('writer-model').value) return $('writer-model').value;
-    return st.writer || '';
+    return (st && st.writer) || ''; // st is null before the first refresh lands
   }
   function composerId() { return $('composer-model').value || ''; }
 

@@ -84,7 +84,10 @@ M3.studio = (function () {
     }
     cfg = {
       caption, lyrics: $('lyrics').value.trim(), seconds: +$('seconds').value || 180, refBase64,
-      composer: M3.status.composerId(), restore: false,
+      // the sidecar records how this take was made: which writer wrote the
+      // prompt and which reference anchored it (name only, never a path)
+      composer: M3.status.composerId(), writer: M3.status.writerId(),
+      refName: refPath ? refPath.split(/[\\/]/).pop() : '', restore: false,
       // models in memory now: reloaded after the LAST take only (no swap back-and-forth between takes)
       restoreIds: $('restore').checked
         ? ((M3.status.get() || {}).models || []).filter(m => m.running).map(m => m.id) : [],
@@ -130,19 +133,61 @@ M3.studio = (function () {
   function setNote(msg) { $('progress').classList.remove('hidden'); $('pnote').textContent = msg; }
 
   /* ---------- step 4: takes + waveform ---------- */
-  function addTake(t) {
+  // A take row comes from two sources: the `done` payload (just generated,
+  // richer fields) or a stored sidecar meta (rebuild after a restart, or a
+  // take made in another window). Same file = one row: the newer row wins.
+  function addTake(t, stored) {
+    const src = (t.mp3 || t.wav).replace(/\\/g, '/');
+    if (src) for (const d of [...document.querySelectorAll('#takes-list .take')])
+      if (d.dataset.src === src) d.remove();
     takeNo += 1;
     const div = document.createElement('div');
     div.className = 'take';
-    const src = (t.mp3 || t.wav).replace(/\\/g, '/');
+    div.dataset.src = src;
+    const m = stored || null;
+    const bits = [];
+    if (m && m.caption) bits.push(`“${esc(m.caption.slice(0, 80))}${m.caption.length > 80 ? '…' : ''}”`);
+    const seconds = m && m.seconds != null ? m.seconds : t.seconds;
+    if (seconds != null) bits.push(`${seconds}s`);
+    const elapsed = m && m.elapsedSec != null ? m.elapsedSec : t.elapsedSec;
+    if (elapsed != null) bits.push(`${elapsed}s gen`);
+    const seed = m && m.seed != null ? m.seed : t.seed;
+    if (seed != null) bits.push(`seed ${esc(seed)}`);
+    const composer = m ? m.composer : t.composer;
+    if (composer) bits.push(esc(M3.short(composer)));
+    const writer = m ? m.writer : t.writer;
+    if (writer) bits.push(esc(M3.short(writer)));
+    const ref = m ? m.reference : t.refName;
+    if (ref) bits.push(`ref ${esc(ref)}`);
+    if (m && m.createdAt) {
+      const d = new Date(m.createdAt);
+      if (!isNaN(d)) bits.push(d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
+    }
+    bits.push(esc(src.split('/').pop()));
     div.innerHTML = `<canvas class="wave" height="44"></canvas>` +
       `<audio controls preload="none" src="file://${encodeURI(src)}"></audio>` +
-      `<div class="meta">#${takeNo} · ${t.seconds}s audio · ${t.elapsedSec}s gen · seed ${t.seed} · ${esc(t.mp3 || t.wav)}</div>`;
+      `<div class="meta">#${takeNo} · ${bits.join(' · ')}</div>`;
     const list = $('takes-list');
     if (list.classList.contains('empty')) { list.textContent = ''; list.classList.remove('empty'); }
     list.prepend(div);
-    drawWave(div.querySelector('.wave'), div.querySelector('audio'), src);
+    lazyWave(div.querySelector('.wave'), div.querySelector('audio'), src);
     syncFlow();
+  }
+
+  // Waveforms decode the whole file: drawing all reloaded takes at once read
+  // hundreds of MB on open. Draw each one when its row first scrolls into view.
+  const waveObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      waveObserver.unobserve(e.target);
+      const w = e.target.__m3wave;
+      if (w) drawWave(e.target, w.audio, w.src);
+    }
+  }, { root: null, rootMargin: '200px' }) : null;
+  function lazyWave(canvas, audio, src) {
+    if (!waveObserver) { drawWave(canvas, audio, src); return; }
+    canvas.__m3wave = { audio, src };
+    waveObserver.observe(canvas);
   }
 
   const audioCtx = () => (audioCtx.ctx ||= new AudioContext());
@@ -217,6 +262,18 @@ M3.studio = (function () {
     }
   }
 
+  // rebuild the list from the output folder (newest first): takes survive
+  // restarts and show up here even when they were made in another window
+  async function loadTakes() {
+    let takes = [];
+    try { takes = await window.m3.invoke('m3:music:takes'); }
+    catch { $('takes-list').classList.add('empty'); return; }
+    // server returns newest first; addTake prepends, so walk oldest first and
+    // the newest lands on top (new generations prepend above it later)
+    for (let i = takes.length - 1; i >= 0; i--) addTake(takes[i], takes[i].meta);
+    if (!takes.length) $('takes-list').classList.add('empty');
+  }
+
   function init() {
     $('btn-write').addEventListener('click', write);
     $('btn-gen').addEventListener('click', generate);
@@ -238,8 +295,9 @@ M3.studio = (function () {
       }
     });
     loadRefs();
+    loadTakes();
     syncFlow();
   }
 
-  return { init, syncFlow };
+  return { init, syncFlow, addTake, loadTakes };
 })();
