@@ -10,6 +10,7 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 ## [Unreleased]
 
 ### Added
+- Device window design and engine/UI contract (`docs/design/`) for 0.4.0 Device care.
 - `VERSION` file and this changelog; `install.sh` and `update.sh` print the version
   (`update.sh` shows `old → new`). Releases are tagged `vX.Y.Z` on GitHub.
 
