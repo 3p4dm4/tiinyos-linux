@@ -119,6 +119,8 @@ Precedence: **env > file > default**. Keys read from `pcsvr-api.yaml`:
 Unknown keys and the vendor file's other blocks (WireGuard, DNS, SSHProxy,
 WebUI, …) are ignored, so the vendor `pcsvr-api.yaml` can be reused as-is.
 Log timestamps are **UTC** (same clock as the HTTP `Date` header).
+Request bodies are never logged — the app posts the device auth key on every
+reconnect — only their size and top-level JSON key names.
 
 ## Tests
 
