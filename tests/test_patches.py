@@ -83,6 +83,41 @@ class TestPatchMain(PatchToolCase):
         self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
         self.assertIn("already patched", r2.stdout)
 
+    def test_music_item_present_then_reapply_does_not_duplicate(self):
+        # fresh apply: the vendor anchor is still present in the bundle
+        path = self._fixture("x=1;" + self.anchor + "y=2;")
+        r1 = run_tool(self.tool, path)
+        self.assertEqual(r1.returncode, 0, r1.stdout + r1.stderr)
+        s1 = open(path).read()
+        self.assertIn('{label:"Music Lab"', s1)
+        self.assertIn('require("./m3_music").open()', s1)
+        self.assertEqual(s1.count('require("./m3_music")'), 1)
+        r2 = run_tool(self.tool, path)
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        s2 = open(path).read()
+        self.assertEqual(s2.count('require("./m3_music")'), 1)
+
+    def test_music_appended_to_existing_cp_patch_not_duplicated(self):
+        # second code path: the cp patch is already in the bundle, the
+        # Music Lab item gets appended to it (same shape the tool produces)
+        cp_patch = ('{type:"separator"},{label:"Performance",'
+                    'click:()=>{try{require("./m3_performance").open()}catch(e){console.error("[M3] performance:",e)}}},'
+                    '{label:"Control Panel",'
+                    'click:()=>{try{require("./m3_cp").open()}catch(e){console.error("[M3] cp:",e)}}},'
+                    '{label:t.quit,click:()=>this.quit()}].filter(Boolean)')
+        path = self._fixture("x=1;" + cp_patch + "y=2;")
+        r1 = run_tool(self.tool, path)
+        self.assertEqual(r1.returncode, 0, r1.stdout + r1.stderr)
+        self.assertIn("appended to cp patch", r1.stdout)
+        s1 = open(path).read()
+        self.assertIn('{label:"Music Lab"', s1)
+        self.assertIn('require("./m3_music").open()', s1)
+        self.assertEqual(s1.count('require("./m3_music")'), 1)
+        r2 = run_tool(self.tool, path)
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        s2 = open(path).read()
+        self.assertEqual(s2.count('require("./m3_music")'), 1)
+
 
 class TestPatchSkipTaskbar(PatchToolCase):
     tool = "patch_skip_taskbar.py"

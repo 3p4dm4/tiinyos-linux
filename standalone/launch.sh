@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Music Lab standalone — launcher.
 # The clone's Electron binary is a packaged build: it always loads the
-# resources/app.asar sitting next to it and ignores an app path on argv.
+# resources/app sitting next to it and ignores an app path on argv.
 # So we build a small symlink farm around the clone's binary where
 # resources/app points at this folder instead. No second download, no copies.
+# The farm is cached, but resources/app is re-pointed on EVERY launch
+# (observed: the farm of the first checkout that ran wins otherwise, so
+# launching from another worktree silently ran that old code).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -30,8 +33,16 @@ if [[ ! -e "$FARM/version" ]] || ! cmp -s "$FARM/version" "$SRC/version" 2>/dev/
     case "$b" in app.asar|app.asar.*|app.asar.unpacked|app|default_app.asar) continue;; esac
     ln -s "$f" "$FARM/resources/$b"
   done
-  ln -s "$HERE" "$FARM/resources/app"
 fi
+
+# re-point resources/app at THIS checkout (the farm above is the only cached part)
+if [[ -d "$FARM/resources/app" && ! -L "$FARM/resources/app" ]]; then
+  # a real directory here would make ln -sfn nest inside it — remove it first
+  rm -rf "$FARM/resources/app"
+fi
+mkdir -p "$FARM/resources"
+ln -sfn "$HERE" "$FARM/resources/app"
+echo "[music-lab] standalone launched from checkout: $HERE" >&2
 
 # --no-sandbox: the clone's chrome-sandbox is npm-downloaded (owner is the user,
 #   not root) so Chromium refuses to start with it; the vendor app disables the
