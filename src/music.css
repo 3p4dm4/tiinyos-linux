@@ -1,0 +1,163 @@
+/* M3 — Music Lab specifics. performance.css gives the reset/body; the tokens below override its
+ * dashboard palette for this page only (the Performance window keeps its own).
+ * Follows the OS theme. Contrast targets: cards visibly off the page, field and control
+ * borders >= 3:1 against their background (rule/color-nontext-contrast), text >= 4.5:1.
+ * Type scale: 12 / 13 / 14 / 20 px, labels never below 13 (rule/type-neutral-scale). */
+:root{ /* dark: page < card < field, each step visible */
+  --bg:#0b0d12; --panel:#1b1f29; --panel2:#262c38; --edge:#343b4a; --line:#707a90;
+  --text:#eef0f5; --muted:#b4bccb; --accent:#8ab4ff; --on-accent:#0b1220;
+  --hot:#ff9a3c; --on-hot:#1a0d00; --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+  --shadow:none;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --bg:#eef0f4; --panel:#ffffff; --panel2:#f6f7f9; --edge:#d4d9e1; --line:#7b8494;
+    --text:#161a22; --muted:#4a5363; --accent:#1d5fd6; --on-accent:#ffffff;
+    --hot:#b4530a; --on-hot:#ffffff; --ok:#15803d; --warn:#b45309; --err:#b91c1c;
+    --shadow:0 1px 2px rgb(0 0 0 / .06);
+  }
+}
+body{font-size:14px}
+.card{border-color:var(--edge);box-shadow:var(--shadow);border-radius:10px}
+
+/* header: title left, device state right (state, not a step) */
+.lab-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.lab-title{display:flex;gap:12px;align-items:center}
+.lab-logo{width:48px;height:48px;border-radius:11px}
+.lab-head h1{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.device{padding:9px 14px;display:flex;flex-direction:column;gap:6px;min-width:min(420px,100%)}
+.device-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.device-state{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.device .note{margin:0}
+/* NPU memory: one segment per model in memory, coloured by role; the rest is free */
+.npu-bar{display:flex;height:10px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.npu-bar i{display:block;height:100%;border-right:2px solid var(--panel)}
+.npu-bar .seg-writer{background:var(--accent)}
+.npu-bar .seg-composer{background:var(--hot)}
+.npu-bar .loading{opacity:.55}
+
+/* page = one screen: header, stepper, then a 2x2 grid that takes the rest.
+ * Columns are equal so stepper items 1-2 sit over the left column and 3-4 over the right. */
+html,body{height:100%}
+body{display:flex;flex-direction:column;min-height:0}
+.lab-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;
+  grid-template-areas:"s1 s3" "s2 s4";gap:16px;margin-top:16px}
+#step1{grid-area:s1} #step2{grid-area:s2} #step3{grid-area:s3} #step4{grid-area:s4}
+.lab-grid > .card{min-width:0;min-height:0}
+#step1 textarea,#step2 textarea{flex:1 1 auto;min-height:56px}
+
+/* fields: own surface + a border you can see */
+textarea{width:100%;box-sizing:border-box;background:var(--panel2);color:var(--text);
+  border:1px solid var(--line);border-radius:8px;padding:10px;font:14px/1.5 system-ui,sans-serif;resize:vertical}
+textarea#caption,textarea#lyrics{font:13px/1.5 ui-monospace,monospace;margin-bottom:4px}
+textarea::placeholder{color:var(--muted);opacity:1}
+textarea:focus,select:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+select,input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+  border-radius:8px;padding:7px 9px;font-size:14px}
+select.fill,input.fill{width:100%;min-width:0}
+.hidden{display:none}
+
+/* actions: blue = write, orange = generate */
+button{font-size:14px;border-radius:8px}
+button.write{background:var(--accent);color:var(--on-accent);padding:9px 16px}
+button.primary{background:var(--hot);color:var(--on-hot);font-weight:700;padding:10px 16px;margin-top:4px}
+button.write:hover,button.primary:hover{filter:brightness(1.08)}
+button.primary:disabled{opacity:.5;cursor:default}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);padding:6px 12px;font-size:13px;font-weight:600;flex:none}
+button.ghost:hover{border-color:var(--accent)}
+
+/* the chain: two halves over the two columns; the model doing the work sits on the arrow */
+.flow{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+.seg{display:flex;align-items:center;gap:0;margin:0;padding:0;list-style:none;min-width:0}
+.seg li[data-s]{display:flex;align-items:center;gap:8px;flex:none;color:var(--muted);font-size:14px;cursor:pointer}
+.seg li[data-s] b{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--panel)}
+.seg li[data-s].done{color:var(--text)}
+.seg li[data-s].done b{background:var(--ok);border-color:var(--ok);color:var(--bg);font-size:0}
+.seg li[data-s].done b::before{content:"✓";font-size:13px}
+.seg li[data-s].active{color:var(--text);font-weight:600}
+.seg li[data-s].active b{border-color:var(--accent);color:var(--accent)}
+@media (prefers-reduced-motion: no-preference){
+  .seg li[data-s].active b{animation:pulse 1.6s ease-in-out infinite}
+}
+/* model node: arrow in, pick + live state, arrow out */
+.seg li.model{flex:1;min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;row-gap:2px;
+  align-items:center;margin:0 10px;padding:6px 10px;border:1px solid var(--edge);border-radius:10px;
+  background:var(--panel);box-shadow:var(--shadow);position:relative}
+.seg li.model::before,.seg li.model::after{content:"";position:absolute;top:50%;width:10px;height:1.5px;background:var(--line)}
+.seg li.model::before{left:-11px}
+.seg li.model::after{right:-11px}
+.seg li.model label{font-size:12px;color:var(--muted);grid-row:1/3}
+.seg li.model select{font-size:13px;padding:3px 6px;min-width:0;width:100%}
+.mstate{font-size:12px;color:var(--muted);display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstate.ok{color:var(--ok)} .mstate.busy{color:var(--warn)} .mstate.warn{color:var(--warn)}
+.seg li.model[data-role=writer]{border-left:4px solid var(--accent)}
+.seg li.model[data-role=composer]{border-left:4px solid var(--hot)}
+.seg li.model.working{border-color:var(--hot)}
+.plan{font-size:13px;margin:2px 0 0;color:var(--text)}
+.plan:empty{display:none}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+
+/* numbered steps */
+.step{display:flex;gap:12px}
+.step-n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent);
+  font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.step-n.done{background:var(--ok);font-size:0}
+.step-n.done::before{content:"✓";font-size:13px}
+.step-n.active{box-shadow:0 0 0 3px var(--panel),0 0 0 5px var(--accent)}
+.step-n:not(.done):not(.active){background:var(--panel2);color:var(--muted);border:1.5px solid var(--line)}
+.step-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.step-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lbl{font-size:13px;font-weight:600;color:var(--text)}
+.step-top .lbl{font-size:14px}
+.step-body .lbl{margin-top:4px}
+.hint{font-weight:400;color:var(--muted);margin-left:6px}
+.help{font-size:13px;color:var(--muted);margin:0 0 4px;line-height:1.45}
+.step-act{display:flex;align-items:center;gap:10px;margin-top:2px}
+
+/* state chip (prompt readiness) */
+.chip{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.chip.ok{border-color:var(--ok);color:var(--ok)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.chip.load{border-color:var(--accent);color:var(--accent)}
+
+/* generation phase stepper */
+.phases{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+.phases li{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.phases li.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.phases li.past{border-color:var(--ok);color:var(--ok)}
+
+/* studio controls */
+.gen-row{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;align-items:end;margin-top:6px}
+.gen-row button.primary{margin:0;height:38px}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--text)}
+.fld input{width:100%;box-sizing:border-box;height:38px}
+.bar{margin-top:12px}
+.ref-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ref-row select{flex:1 1 140px}
+
+/* takes */
+.takes-card .hint{font-size:13px}
+#takes-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+#takes-list.empty{align-items:center;justify-content:center;color:var(--muted);font-size:13px;
+  border:1px dashed var(--line);border-radius:10px;min-height:96px}
+.take{background:var(--panel2);border:1px solid var(--edge);border-radius:10px;padding:10px}
+.take audio{width:100%;height:34px;margin-top:6px}
+.take .meta{font-size:12px;color:var(--muted);margin-top:4px;word-break:break-all}
+.wave{display:block;width:100%;height:44px;cursor:pointer;border-radius:6px}
+
+/* status dots use the shared semantic tokens */
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.dot.busy{background:var(--warn)}
+.dot.idle{background:var(--ok)}
+.dot.down{background:var(--err)}
+.dot.off{background:var(--muted)}
+@media (prefers-reduced-motion: no-preference){
+  .dot.busy{animation:pulse 1.2s ease-in-out infinite}
+}
+@keyframes pulse{50%{opacity:.35}}
+
+@media (max-width:900px){.flow{grid-template-columns:1fr}.lab-grid{grid-template-columns:1fr;grid-template-rows:none;grid-template-areas:"s1" "s2" "s3" "s4"}.seg li[data-s] span{display:none}}
