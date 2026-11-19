@@ -83,7 +83,22 @@ fn api_v1_alias_answers_like_devices() {
     let (_dev, srv) = started();
     let a = http_get(srv.addr, "/devices").unwrap().text();
     let b = http_get(srv.addr, "/api/v1/devices").unwrap().text();
-    assert_eq!(a, b);
+    // last_seen_at is "now" in seconds: the two calls can straddle a second
+    // boundary (seen once in CI), so compare everything else
+    assert_eq!(without_last_seen(&a), without_last_seen(&b));
+}
+
+/// Drop every `"last_seen_at": <digits>` from a JSON text (number only).
+fn without_last_seen(text: &str) -> String {
+    let key = "\"last_seen_at\": ";
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(i) = rest.find(key) {
+        out.push_str(&rest[..i + key.len()]);
+        rest = rest[i + key.len()..].trim_start_matches(|c: char| c.is_ascii_digit());
+    }
+    out.push_str(rest);
+    out
 }
 
 #[test]
