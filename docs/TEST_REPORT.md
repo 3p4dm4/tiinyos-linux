@@ -34,7 +34,8 @@ Linux machine, exactly as a new community user would follow the README.
    - `uninstalled: pristine app.asar restored`; restored file is
      **byte-identical** to `app.asar.orig` (`cmp` clean), archive listable
      with `asar list`, and the pristine app **launches again** (window up).
-6. **Watchdog install path** (added 2026-11-17): `install.sh` copies
+6. **Watchdog install path** (added 2026-11-17; watchdog retired 2026-11-19,
+   replaced by `pcsvr-rs`): `install.sh` copies
    `tools/pcsvr-watchdog.sh` into the clone and writes the systemd units with
    `ExecStart` sed'ed to the actual clone dir (verified with a non-default
    `--clone-dir`); the uninstall step removes script and units (verified).

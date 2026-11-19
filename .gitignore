@@ -3,3 +3,7 @@
 __pycache__/
 node_modules/
 clone/
+
+# Rust build artifacts (pcsvr-rs)
+pcsvr-rs/target/
+dist/
