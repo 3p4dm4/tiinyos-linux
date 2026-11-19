@@ -103,9 +103,10 @@ entries and the `/etc/hosts` shim line, and deletes the clone.
 - **`install.sh` needs Rust (`cargo`)** to build the Linux PC service — get it
   from [rustup.rs](https://rustup.rs). Without it everything else installs, but
   the app may not see the device.
-- **Device identity from `device.json` not yet checked on a real device** — the
-  service reads serial and uuid from the device and falls back to the
-  `Shim.*` keys of `pcsvr-api.yaml`; see `pcsvr-rs/README.md`.
+- **No uuid in `device.json`** — the service reads the serial (`serial_number`)
+  and name from the device; a uuid is reported only if you set `Shim.Uuid` in
+  `pcsvr-api.yaml`. The app identifies the device by its serial; see
+  `pcsvr-rs/README.md`.
 - **Crash on startup on some hardware** — Electron's VSync is unstable on a
   few GPUs; the launcher falls back to `--disable-gpu` automatically.
 - **X11-only today** — Wayland users: run under X11 (or XWayland) for now.
