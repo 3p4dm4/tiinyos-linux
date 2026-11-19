@@ -63,6 +63,13 @@ class TestPatchBallClick(PatchToolCase):
     anchor = 't.setIgnoreMouseEvents(!0,{forward:!0}) n.setIgnoreMouseEvents(r,{forward:i?.forward})'
 
 
+class TestPatchActivity(PatchToolCase):
+    tool = "patch_activity.py"
+    # patch_activity runs after patch_ball_click: its second anchor is that tool's output
+    anchor = ('this.tray.setToolTip("TiinyOS") ("linux"===process.platform?require("./m3_ballshape")'
+              '.apply(t,!0):t.setIgnoreMouseEvents(!0,{forward:!0}))')
+
+
 class TestPatchMain(PatchToolCase):
     tool = "patch_main.py"
     anchor = ',{type:"separator"},{label:t.quit,click:()=>this.quit()}].filter(Boolean)'

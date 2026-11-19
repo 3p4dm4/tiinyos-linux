@@ -25,32 +25,46 @@ function classify({ util, models, loadedCount }) {
   return { label: 'Device unreachable', busy: false };
 }
 
-/* Floating Ball injection: define once, then push state. */
+/* Floating Ball injection: define once, then push state.
+ * The ball sits inside a much larger transparent window (room for its menu), so
+ * the dot is attached to the ball element itself (the box around the logo img),
+ * never to the window: anchored to the window it showed up far from the ball
+ * and lit up whenever the cursor entered the invisible rectangle. */
 const BALL_JS = `(() => {
   if (!window.__m3set) {
     const d = document.createElement('div');
     d.id = 'm3-act';
-    d.style.cssText = 'position:fixed;top:2px;right:2px;width:10px;height:10px;border-radius:50%;' +
-      'border:1px solid rgba(255,255,255,.7);display:none;z-index:99999;pointer-events:auto;';
+    d.style.cssText = 'position:absolute;top:0;right:0;width:10px;height:10px;border-radius:50%;' +
+      'border:1px solid rgba(255,255,255,.7);display:none;z-index:99999;pointer-events:none;';
     const st = document.createElement('style');
     st.textContent = '@keyframes m3pulse{0%,100%{opacity:1}50%{opacity:.25}}';
     document.head.appendChild(st);
-    const put = (label, busy) => {
+    let hover = false;
+    const ball = () => { const img = document.querySelector('img[alt="logo"]'); return img && img.parentElement; };
+    const attach = () => {
+      const b = ball();
+      if (!b) return null;
+      if (d.parentElement !== b) {
+        if (getComputedStyle(b).position === 'static') b.style.position = 'relative';
+        b.appendChild(d);
+        b.addEventListener('mouseenter', () => { hover = true; paint(); });
+        b.addEventListener('mouseleave', () => { hover = false; paint(); });
+      }
+      return b;
+    };
+    const paint = () => {
+      const b = attach();
+      if (b) b.title = window.__m3label || '';
+      // busy: always visible; idle: only while the cursor is on the ball
+      d.style.display = (window.__m3busy || hover) ? 'block' : 'none';
+    };
+    window.__m3set = (label, busy) => {
       window.__m3busy = busy;
-      d.title = label;
+      window.__m3label = label;
       d.style.background = busy ? '#ffb020' : '#3fbf6f';
       d.style.animation = busy ? 'm3pulse 1s infinite' : 'none';
-      // busy: always visible; idle: only on hover
-      d.style.display = busy ? 'block' : 'none';
+      paint();
     };
-    window.__m3set = put;
-    document.body.appendChild(d);
-    const show = () => { d.style.display = 'block'; };
-    const hide = () => { if (!window.__m3busy) d.style.display = 'none'; };
-    document.addEventListener('mouseenter', show, true);
-    document.addEventListener('mouseleave', hide, true);
-    d.addEventListener('mouseenter', show);
-    d.addEventListener('mouseleave', hide);
   }
 })()`;
 
