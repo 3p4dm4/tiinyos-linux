@@ -17,8 +17,9 @@ PAIRS = [
      'this.tray.setToolTip("TiinyOS"),globalThis.__m3Tray=this.tray,'
      'setTimeout(()=>{try{require("./m3_activity").start(globalThis.__m3Tray)}'
      'catch(e){console.error("[M3] activity:",e)}},4000)'),
-    ('t.setIgnoreMouseEvents("linux"!==process.platform,{forward:!0})',
-     't.setIgnoreMouseEvents("linux"!==process.platform,{forward:!0}),globalThis.__m3Ball=t'),
+    ('("linux"===process.platform?require("./m3_ballshape").apply(t,!0):t.setIgnoreMouseEvents(!0,{forward:!0}))',
+     '("linux"===process.platform?require("./m3_ballshape").apply(t,!0):t.setIgnoreMouseEvents(!0,{forward:!0})),'
+     'globalThis.__m3Ball=t'),
 ]
 
 s = open(F).read()
