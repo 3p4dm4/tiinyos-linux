@@ -51,7 +51,7 @@ jobs:
         run: |
           # node:test suites for the main-process helpers; no-op while there are none.
           if compgen -G 'tests/js/*.test.js' >/dev/null; then
-            node --test tests/js/
+            node --test tests/js/*.test.js   # a bare directory fails on some Node 22 builds
           fi
       - name: pcsvr-rs (Linux PC service) — clippy + tests, leak test included
         working-directory: pcsvr-rs
