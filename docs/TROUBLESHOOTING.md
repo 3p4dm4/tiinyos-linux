@@ -74,6 +74,15 @@ window is visible (the page renders even when the window never appears);
 check the window state (`xwininfo -id <win>` → IsViewable) or a compositor
 screenshot (`gnome-screenshot -f out.png`).
 
+## Clicks next to the Floating Ball do nothing / the activity dot is far from the ball
+
+Older installs only (before 2026-11-19). The ball lives in a transparent
+462x300 window; the old Linux fix kept the whole window clickable, so that
+invisible rectangle swallowed clicks, and the activity dot sat in its corner.
+Rerun `./install.sh`: on Linux the window is now shaped to the ball when idle
+(`src/m3_ballshape.js`). Check: click right next to the ball — the window
+below must react.
+
 ## Floating Ball listed as an extra, icon-less window in the taskbar
 
 Electron 37 ignores `skipTaskbar` on Linux/X11 (option and setter alike —

@@ -62,11 +62,11 @@ Rules learned the hard way:
 | `build_clone.sh` | official NSIS bundle + upstream Electron → clean clone |
 | `install.sh` | unpack pristine asar, inject `src/`, run patch, repack with correct unpacked/integrity flags, verify header, desktop entries, build + install `pcsvr-rs`, retire the old watchdog |
 | `tools/patch_main.py` | tray menu entries (markers `M3-PERF`, `M3-CP`); idempotent |
-| `tools/patch_ball_*.py`, `tools/patch_skip_taskbar.py` | Linux fixes for the Floating Ball / panels (click, blur-hide, taskbar via `wmctrl`); anchor-based, fail on bundle drift |
+| `tools/patch_ball_*.py`, `tools/patch_skip_taskbar.py` | Linux fixes for the Floating Ball / panels (click area shaped to the ball via `src/m3_ballshape.js`, blur-hide, taskbar via `wmctrl`); anchor-based, fail on bundle drift |
 | `tools/launch.sh` | installed as `<clone>/launch.sh`, target of the desktop icon: pre-flight checks + "window really on screen" check |
 | `tools/fix_unpacked.py` | restores unpacked/integrity flags lost by asar pack |
 | `pcsvr-rs/`, `tools/build_pcsvr.sh` | the Linux PC service in Rust (std only) and its build/stage script; `cargo test` includes the 500-connection leak test |
-| `src/` | feature files (main-process js, renderer html/css, `m3perf/`) |
+| `src/` | feature files (main-process js, renderer html/css, `m3perf/`); `m3_activity.js` = activity indicator (device poll + ball dot + tray tooltip), `tools/patch_activity.py` wires it |
 
 ## Docs map
 
