@@ -1,0 +1,49 @@
+# pcsvr-api.yaml — example config for pcsvr-rs (the Linux PC service).
+#
+# The real file is written per machine by the installer and contains this
+# user's device identity; it is deliberately NOT committed. Copy this file
+# next to the binary as `pcsvr-api.yaml` (the app starts `pcsvr -f
+# pcsvr-api.yaml` with cwd = its own directory) and fill in what you need.
+#
+# Precedence: environment variable > this file > built-in default.
+# pcsvr-rs reads only the keys below; every other block of the vendor's
+# Windows config (WireGuard, DNS, SSHProxy, WebUI, ...) is ignored, and
+# unknown keys are ignored too — so the vendor file can be reused as-is.
+
+Name: pcsvr-api
+Host: 127.0.0.1          # listen address (env: PCSVR_HOST)
+Port: 60000              # the port TiinyOS probes (env: PCSVR_PORT)
+
+# Identity and addressing of the Pocket. Leave the Shim identity keys empty
+# to let pcsvr-rs read the real values from the device itself at runtime
+# (GET http://<DeviceIp>:<DeviceDiscovery.HTTPPort>/device.json). They are
+# only fallbacks for a device that does not answer.
+Shim:
+  # DeviceId:            # serial (TNYM...); fallback only
+  # Uuid:                # device.json uuid; fallback only
+  DeviceIp: 172.20.31.109   # USB /30 example from the device docs
+  #                      # (env: TIINY_DEVICE_IP)
+  # DeviceName:          # shown in the app when device.json has no name
+
+  # Tuning (all optional).
+  # WsIntervalMs: 3000        # period of the /devices_list/ws connection event
+  # WsReadTimeoutMs: 500      # per-turn inbound wait of a session
+  # ProbeIntervalMs: 5000     # how often device.json is re-read
+  # ProbeTimeoutMs: 3000      # per-probe deadline
+  # MaxWebSockets: 16         # live websocket sessions (oldest is evicted)
+  # MaxConnections: 512       # concurrent connection threads (HTTP + WS)
+  # LogPath: pcsvr-rs.log     # "" disables file logging
+  # LogMaxBytes: 2097152      # rotate to <LogPath>.old past this size
+
+# The port pcsvr-rs probes for device.json. The vendor config already carries
+# it under DeviceDiscovery.HTTPPort; both names are accepted.
+DeviceDiscovery:
+  HTTPPort: 39218        # (env: TIINY_DEVICE_PORT)
+
+# Everything below is present in the vendor file for Windows parity and is
+# ignored by pcsvr-rs. Kept here so a copy of the vendor file stays valid.
+Timeout: 3600000
+Log:
+  Level: info
+  Mode: file
+  Path: logs
