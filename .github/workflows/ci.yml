@@ -62,5 +62,11 @@ jobs:
         run: |
           cargo clippy --offline --all-targets -- -D warnings
           cargo test --offline -- --test-threads=1
+      - name: node tests (tests/js, fake device included)
+        run: |
+          # node:test suites; some spawn tests/fake_pocket.py (Python is set up above)
+          if compgen -G 'tests/js/*.test.js' >/dev/null; then
+            node --test tests/js/*.test.js
+          fi
       - name: secrets scan (fail-closed)
         run: bash tools/check_secrets.sh
