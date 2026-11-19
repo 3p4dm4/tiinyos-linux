@@ -23,10 +23,10 @@ lines, then `curl -s -m 3 http://auth.api.tiiny/` to confirm reachability.
 
 ## Fans go loud after hours/days of uptime, system slow
 
-Known vendor thread leak in the `pcsvr` shim. Confirm:
+Known thread leak in our Linux `pcsvr` shim (not Tiiny's code). Confirm:
 `awk '/Threads/{print $2}' /proc/$(pgrep -xf 'python3 ./pcsvr -f pcsvr-api.yaml')/status`
 — hundreds and climbing is it. Fix: enable the shipped watchdog, see
-[vendor-thread-leak.md](vendor-thread-leak.md).
+[pcsvr-thread-leak.md](pcsvr-thread-leak.md).
 
 ## Device features stop working while the app stays open
 

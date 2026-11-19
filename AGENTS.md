@@ -4,7 +4,7 @@
 
 Feature pack that patches the official TiinyOS Electron bundle to run on Linux
 with two added windows (Performance, embedded Control Panel) plus a guard for
-a vendor bug. There is **no proprietary code here**: the bundle is downloaded at
+a thread leak in our own Linux `pcsvr` shim. There is **no proprietary code here**: the bundle is downloaded at
 build time by `build_clone.sh`. Keep it that way — never commit bundle
 artifacts, `app.asar*`, Electron binaries, or anything under a clone dir.
 
@@ -65,14 +65,14 @@ Rules learned the hard way:
 | `tools/patch_ball_*.py`, `tools/patch_skip_taskbar.py` | Linux fixes for the Floating Ball / panels (click, blur-hide, taskbar via `wmctrl`); anchor-based, fail on bundle drift |
 | `tools/launch.sh` | installed as `<clone>/launch.sh`, target of the desktop icon: pre-flight checks + "window really on screen" check |
 | `tools/fix_unpacked.py` | restores unpacked/integrity flags lost by asar pack |
-| `tools/pcsvr-watchdog.sh` | vendor thread-leak guard (see `docs/vendor-thread-leak.md`) |
+| `tools/pcsvr-watchdog.sh` | thread-leak guard for our Linux shim (see `docs/pcsvr-thread-leak.md`) |
 | `src/` | feature files (main-process js, renderer html/css, `m3perf/`) |
 
 ## Docs map
 
 * README — human entry point (install, how it works, limitations)
 * `docs/network.md` — device USB-network setup
-* `docs/vendor-thread-leak.md` — RCA of the vendor bug + watchdog
+* `docs/pcsvr-thread-leak.md` — RCA of the leak in our Linux shim + watchdog
 * `docs/TROUBLESHOOTING.md` — symptom → cause → fix
 * `docs/TEST_REPORT.md` — what "verified" means here, with evidence
 
