@@ -1,16 +1,34 @@
-# Vendor bug: pcsvr thread leak (and what this repo does about it)
+# pcsvr thread leak in our Linux shim (and what this repo does about it)
 
-**TL;DR** — the `pcsvr` python shim that ships inside the official TiinyOS
-bundle leaks threads, file descriptors and CPU forever while the desktop app
-keeps its websocket open. Left alone it maxes out your fans. The repo ships a
-user-level watchdog (`tools/pcsvr-watchdog.sh` + systemd timer) that restarts
-the shim invisibly before it gets dangerous.
+**TL;DR** — TiinyOS talks to a local "PC service" (`pcsvr`) on port 60000.
+Tiiny ships it natively for Windows (`pcsvr.exe`). On Linux this port uses a
+small **Python shim written by us**, not by Tiiny: it leaks threads, file
+descriptors and CPU while the desktop app keeps its websocket open. Left alone
+it maxes out your fans. The repo ships a user-level watchdog
+(`tools/pcsvr-watchdog.sh` + systemd timer) that restarts the shim before it
+gets dangerous.
+
+> **Correction (2026-11-19).** Earlier versions of this page called this a
+> *vendor* bug and said the shim ships inside the official bundle. That was
+> wrong: the official bundle is the Windows installer and contains no Linux
+> shim. The leak is ours. Tiiny's native Windows `pcsvr.exe` does not show it
+> (thread count stable at 21 on Windows 11, observed 2026-11-18).
+
+## Known gap: the shim is not in this repo yet
+
+The Python shim currently lives only on the machine where the port was
+developed, with that device's identity written into it; `build_clone.sh` and
+`install.sh` do not create `electron/resources/pcsvr/linux/`. A
+self-contained replacement (Rust, no runtime dependencies, reads the device
+identity from the device itself, leak-free by design) is in progress on the
+`feat/pcsvr-rust` branch and will be installed by `install.sh`. Until then a
+fresh install may not list the device in the app.
 
 ## Symptoms observed (2026-11-16, SlimbookOS 24.0 (Ubuntu 24.04 base), TiinyOS 1.0.3)
 
 * load average `7091` on 20 cores, CPU ~10000%, package ~79 °C, fans 5600 RPM
-* one process (`python3 ./pcsvr -f pcsvr-api.yaml`, started by the app from
-  `resources/pcsvr/linux/`) holding **13,312 threads** after ~1.5 days
+* one process (`python3 ./pcsvr -f pcsvr-api.yaml`, our shim, started by the
+  app from `resources/pcsvr/linux/`) holding **13,312 threads** after ~1.5 days
 * `top` showing ~5000 python threads at ~13 % CPU each
 * eventually the shim dies on its own (functional death at the ~1024 fd limit:
   `EMFILE` storms in `pcsvr-shim.log`, process alive, port 60000 silent)
@@ -60,5 +78,5 @@ Disable: `systemctl --user disable --now pcsvr-watchdog.timer`.
   nohup'd shim when the oneshot unit exits (observed at bring-up).
 * The script matches the shim with `pgrep -xf` (exact cmdline): a plain `-f`
   also matches bash wrappers and shells that quote the pattern.
-* This is a workaround for a vendor bug. If Tiiny fixes `pcsvr`, the watchdog
-  simply never fires — no action needed here.
+* This is a workaround for a bug in our own shim. Once the Rust replacement
+  ships, the watchdog never fires and can be disabled.

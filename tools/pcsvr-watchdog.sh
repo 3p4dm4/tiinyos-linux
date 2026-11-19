@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# pcsvr-watchdog.sh — keep the TiinyOS pcsvr shim healthy (vendor thread-leak guard).
-# Why this exists: docs/vendor-thread-leak.md (full RCA with evidence).
+# pcsvr-watchdog.sh — keep the TiinyOS pcsvr shim healthy (guard for the thread leak in our Linux shim).
+# Why this exists: docs/pcsvr-thread-leak.md (full RCA with evidence).
 #
 # Policy per 5-min tick:
 #   - shim dead or unresponsive (port answers nothing) -> start it
 #   - shim threads > MAX_THREADS (leak grown back)     -> kill and restart
 # MAX_THREADS is data-driven: 1500 is ~30 min at the observed fast leak rate
-# (~50 thread/min) and 1/9 of the level where the vendor shim died on its own
+# (~50 thread/min) and 1/9 of the level where the shim died on its own
 # (~13k). A restart is invisible to the app: it reconnects within 30 s.
 #
 # Paths default to the clone built by install.sh; override with env:

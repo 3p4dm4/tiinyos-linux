@@ -56,7 +56,7 @@ have rough edges on Linux — open an issue with the log from
 | **Control Panel** | The device's management pages (models, network, power) as a native window — no browser needed |
 | **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory) and a live activity indicator |
 | **Agent store** | Browse, install, and update AI agents straight from the Linux app |
-| **Watchdog** | The leaked vendor bundle holds up to **~3,000 threads/h** (about 60/h while idle); a user systemd timer every 5 minutes keeps the count near zero — see [docs/vendor-thread-leak.md](docs/vendor-thread-leak.md) |
+| **Watchdog** | Our Linux `pcsvr` shim (not Tiiny's code) leaks up to **~3,000 threads/h** (about 60/h while idle); a user systemd timer every 5 minutes keeps the count near zero until its leak-free replacement lands — see [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md) |
 
 ## How it works
 
@@ -100,6 +100,11 @@ entries and the `/etc/hosts` shim line, and deletes the clone.
 
 ## Known issues
 
+- **Linux PC service (`pcsvr`) not shipped yet** — the app needs a local
+  service on port 60000 to list the device. Tiiny ships one only for Windows;
+  ours is not in the repo yet, so a fresh install may not see the device. A
+  self-contained replacement is in progress — see
+  [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md).
 - **Crash on startup on some hardware** — Electron's VSync is unstable on a
   few GPUs; the launcher falls back to `--disable-gpu` automatically.
 - **X11-only today** — Wayland users: run under X11 (or XWayland) for now.

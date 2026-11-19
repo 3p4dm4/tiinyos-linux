@@ -137,7 +137,7 @@ EOF
   chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
 fi
 
-# 7b. pcsvr watchdog (vendor thread-leak guard, see docs/vendor-thread-leak.md)
+# 7b. pcsvr watchdog (guard for the thread leak in our Linux shim, see docs/pcsvr-thread-leak.md)
 run mkdir -p "$CLONE/tools"
 run cp "$HERE/tools/pcsvr-watchdog.sh" "$CLONE/tools/pcsvr-watchdog.sh"
 run install -m 0755 "$HERE/tools/launch.sh" "$CLONE/launch.sh"
@@ -153,6 +153,6 @@ else
 fi
 
 say "done. Restart the app ($CLONE/run.sh)."
-say "recommended: guard the vendor thread leak (docs/vendor-thread-leak.md):"
+say "recommended: guard the thread leak of the Linux pcsvr shim (docs/pcsvr-thread-leak.md):"
 say "  systemctl --user daemon-reload && systemctl --user enable --now pcsvr-watchdog.timer"
 say "rollback anytime: ./install.sh --uninstall"
