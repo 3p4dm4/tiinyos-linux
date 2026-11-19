@@ -245,3 +245,23 @@ test('atomic write: a failing write leaves the old file intact and no tmp', () =
   assert.equal(JSON.parse(fs.readFileSync(p, 'utf8')).a, 1);
   assert.deepEqual(fs.readdirSync(d), ['config.json']);
 });
+
+test('an unreadable lock left by a crash does not block forever', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm3lock-'));
+  const lock = path.join(dir, 'generate.lock');
+  fs.writeFileSync(lock, ''); // died between create and write
+  const old = (Date.now() - 60 * 1000) / 1000;
+  fs.utimesSync(lock, old, old);
+  const r = store.acquireLock(lock, { pid: process.pid + 1000000 });
+  assert.equal(r.acquired, true);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('a fresh unreadable lock is respected for a moment (writer may be mid-write)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm3lock-'));
+  const lock = path.join(dir, 'generate.lock');
+  fs.writeFileSync(lock, '');
+  const r = store.acquireLock(lock, { pid: process.pid + 1000000 });
+  assert.equal(r.acquired, false);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

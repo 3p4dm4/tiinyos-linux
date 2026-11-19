@@ -55,7 +55,7 @@ function listTakes(dir, limit = 50) {
   const wav = new Map(), mp3 = new Map(), json = new Map();
   const mtime = new Map();
   for (const n of names) {
-    if (n.endsWith('.tmp')) continue; // atomic-write residue, not a take file
+    if (/\.tmp\./.test(n)) continue; // atomic-write residue (<file>.tmp.<pid>.<ms>), not a take file
     const st = (() => { try { return fs.statSync(path.join(dir, n)); } catch { return null; } })();
     if (!st || !st.isFile()) continue;
     mtime.set(n, st.mtimeMs);
@@ -87,6 +87,7 @@ function listTakes(dir, limit = 50) {
 // ~/.config/music-lab: a lock file (exclusive create, 'wx') keeps only one
 // of them talking to the Pocket at a time.
 const STALE_MAX_MS = 30 * 60 * 1000; // default ceiling; the caller passes its own timeout
+const UNREADABLE_GRACE_MS = 5000; // an empty/garbled lock older than this is a crash leftover
 
 // exists? -> { pid, startedAt, host } | null (unreadable counts as none)
 function readLock(lockPath) {
@@ -123,6 +124,17 @@ function acquireLock(lockPath, info = {}, maxAgeMs = STALE_MAX_MS) {
   catch (e) {
     if (e.code !== 'EEXIST') throw e;
     const holder = readLock(lockPath);
+    if (!holder) {
+      // exists but unreadable: a process died between create and write. Give a
+      // live writer a moment, then treat it as stale — never block forever.
+      let age = 0;
+      try { age = Date.now() - fs.statSync(lockPath).mtimeMs; } catch { /* gone: retry below */ }
+      if (age > UNREADABLE_GRACE_MS || !fs.existsSync(lockPath)) {
+        try { fs.unlinkSync(lockPath); } catch { /* gone anyway */ }
+        try { write(); return { acquired: true, holder: null }; }
+        catch { /* lost the race */ }
+      }
+    }
     if (holder) {
       const stale = holder.pid === want.pid || // our own leaked lock: ours to reclaim
         !pidAlive(holder.pid) ||

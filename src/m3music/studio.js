@@ -147,14 +147,16 @@ M3.studio = (function () {
     const m = stored || null;
     const bits = [];
     if (m && m.caption) bits.push(`“${esc(m.caption.slice(0, 80))}${m.caption.length > 80 ? '…' : ''}”`);
-    if (t.seconds != null) bits.push(`${t.seconds}s`);
+    const seconds = m && m.seconds != null ? m.seconds : t.seconds;
+    if (seconds != null) bits.push(`${seconds}s`);
     const elapsed = m && m.elapsedSec != null ? m.elapsedSec : t.elapsedSec;
     if (elapsed != null) bits.push(`${elapsed}s gen`);
-    if (t.seed != null) bits.push(`seed ${t.seed}`);
+    const seed = m && m.seed != null ? m.seed : t.seed;
+    if (seed != null) bits.push(`seed ${esc(seed)}`);
     const composer = m ? m.composer : t.composer;
-    if (composer) bits.push(M3.short(composer));
+    if (composer) bits.push(esc(M3.short(composer)));
     const writer = m ? m.writer : t.writer;
-    if (writer) bits.push(M3.short(writer));
+    if (writer) bits.push(esc(M3.short(writer)));
     const ref = m ? m.reference : t.refName;
     if (ref) bits.push(`ref ${esc(ref)}`);
     if (m && m.createdAt) {
@@ -168,8 +170,24 @@ M3.studio = (function () {
     const list = $('takes-list');
     if (list.classList.contains('empty')) { list.textContent = ''; list.classList.remove('empty'); }
     list.prepend(div);
-    drawWave(div.querySelector('.wave'), div.querySelector('audio'), src);
+    lazyWave(div.querySelector('.wave'), div.querySelector('audio'), src);
     syncFlow();
+  }
+
+  // Waveforms decode the whole file: drawing all reloaded takes at once read
+  // hundreds of MB on open. Draw each one when its row first scrolls into view.
+  const waveObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      waveObserver.unobserve(e.target);
+      const w = e.target.__m3wave;
+      if (w) drawWave(e.target, w.audio, w.src);
+    }
+  }, { root: null, rootMargin: '200px' }) : null;
+  function lazyWave(canvas, audio, src) {
+    if (!waveObserver) { drawWave(canvas, audio, src); return; }
+    canvas.__m3wave = { audio, src };
+    waveObserver.observe(canvas);
   }
 
   const audioCtx = () => (audioCtx.ctx ||= new AudioContext());
