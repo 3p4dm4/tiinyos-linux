@@ -104,9 +104,7 @@ impl Sha1 {
         let bits = self.total.wrapping_mul(8);
         let l = self.buf_len; // update() guarantees buf_len < BLOCK
         self.buf[l] = 0x80;
-        for i in (l + 1)..BLOCK {
-            self.buf[i] = 0;
-        }
+        self.buf[(l + 1)..BLOCK].fill(0);
         if l < 56 {
             self.buf[56..64].copy_from_slice(&bits.to_be_bytes());
             let block = self.buf;
