@@ -4,10 +4,22 @@
 'use strict';
 const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { BASE, P8800, jget } = require('./m3_device');
 const { runBenchmark } = require('./m3_bench');
 
 let win = null;
+
+/* Where the renderer html lives. Inside the installed bundle this file is at
+ * out/main/ and the page at out/renderer/performance.html (a sibling of main's
+ * parent). In this checkout the module sits in src/ next to performance.html.
+ * Resolve whichever exists so the SAME module works in-app and standalone
+ * (standalone/main.js requires it straight from src/). The preload path is
+ * already correct in both (m3_preload.js is next to this file either way). */
+function htmlPath() {
+  const inBundle = path.join(__dirname, '..', 'renderer', 'performance.html');
+  return fs.existsSync(inBundle) ? inBundle : path.join(__dirname, 'performance.html');
+}
 
 function open() {
   if (win && !win.isDestroyed()) { win.show(); win.focus(); return; }
@@ -23,7 +35,7 @@ function open() {
   });
   win.setMenu(null); // no File/Edit window menu (Linux default menu bar)
   win.setMenuBarVisibility(false);
-  win.loadFile(path.join(__dirname, '..', 'renderer', 'performance.html'));
+  win.loadFile(htmlPath());
   win.on('closed', () => { win = null; });
 }
 
