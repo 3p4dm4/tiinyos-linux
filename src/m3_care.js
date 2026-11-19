@@ -15,7 +15,11 @@
  *     would evict something else is reported "not restored · needs …", never
  *     evicted
  *   * ac_power get/set (POST is docs-only: set re-reads the GET after)
- *   * activity log (store): loads/unloads seen, outages, restore steps;
+ *   * updates: journal-driven and resumable — unload (if loaded) → DELETE →
+ *     download (watched) → reload (if loaded); the journal is written before
+ *     each step, on app start and after every outage it resumes from it;
+ *     updateAll queues one model at a time; restore waits while an update runs
+ *   * activity log (store): loads/unloads seen, outages, restore steps, updates;
  *     logEvent is exported so other modules (e.g. the benchmark) can log too
  *   * usage passthrough: week_usage / app_week_usage, weekStart = a Monday
  *
@@ -23,14 +27,15 @@
  * timer only runs inside the app.
  */
 'use strict';
-const { BASE, jget, jpost } = require('./m3_device');
-const { shortName, fitPlan, ensureLoaded, runningIds } = require('./m3_models');
+const { BASE, jget, jpost, jdelete } = require('./m3_device');
+const { mpath, shortName, fitPlan, ensureLoaded, ensureUnloaded, runningIds } = require('./m3_models');
 const { createStore } = require('./m3_care_store');
 
 const POLL_MS = 5000;
 let OUTAGE_MS = 15000; // no answer for >15 s and then an answer = outage
 let STALE_MS = 60000;  // link up but no good read for >60 s = stale
 const LOAD_TIMEOUT_MS = 15 * 60 * 1000;
+const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000; // multi-GB model over the USB link
 let LOAD_POLL_MS = 1500;
 
 const S = {
@@ -50,6 +55,9 @@ const S = {
   tasks: new Map(),   // taskId -> task (CareState.tasks shape)
   taskSeq: 0,
   restore: null,      // active restore task or null
+  restoreQueued: null, // closed outage waiting for the update queue to finish
+  updateTask: null,    // active update task or null
+  coldRestore: false,  // cold-start restore deferred behind an update
   ownRecent: new Map(),// model id -> expiry ms: this PC's own load/unload (for log attribution)
   acPower: null,      // null = unknown (unreachable or read failed)
   lastPush: 0,
@@ -197,6 +205,14 @@ async function pollOnce() {
   if (!wasCold && !closedOutage) diffAndLog(S.lastIds, ids);
   S.lastIds = [...ids];
   touchSnapshot(ids);
+  // On app start and after every outage: pick a journal-resident update back
+  // up. A cold start (first read, or app started while the device was down)
+  // additionally re-fills what the device is missing per policy — that covers
+  // a device reboot that happened while the app was closed (no outage was
+  // observed, so nothing else would trigger a restore).
+  if (wasCold) S.coldRestore = true;
+  maybeResume();
+  if (wasCold) startRestore(null);
 
   try {
     const a = await jget(`${BASE}/api/v1/sys/ac_power/`, 8000);
@@ -213,11 +229,24 @@ async function pollOnce() {
 // evict another is reported and skipped.
 async function startRestore(outage) {
   if (S.restore) return null;
+  // One thing at a time on the device: while an update runs (or is waiting in
+  // the journal) the restore defers and runs when the update queue finishes.
+  if (S.updateTask || S.store.journal()) {
+    if (outage) S.restoreQueued = outage;
+    return null;
+  }
+  S.coldRestore = false; // the cold window is over whether we act or not
   const care = S.store.care();
   if (care.policy.reload === 'off') return null;
+  // Load order source: the outage record (what was in memory when the link
+  // dropped — the live snapshot is empty by now if the restore was deferred);
+  // otherwise the current/persisted snapshot (cold-start restore).
+  const source = outage && outage.beforeIds && outage.beforeIds.length
+    ? outage.beforeIds
+    : S.snapshot.map((x) => x.id);
   const want = (care.policy.reload === 'all'
-    ? S.snapshot.map((x) => x.id)
-    : S.snapshot.filter((x) => care.kept.includes(x.id)).map((x) => x.id));
+    ? source
+    : source.filter((id) => care.kept.includes(id)));
   if (!want.length) return null;
   // The task is created before the first await: currentTask() and the
   // activity line must see it as soon as the poll that triggered it returns.
@@ -275,6 +304,203 @@ async function startRestore(outage) {
   S.restore = null;
   pushIfChanged();
   return task;
+}
+
+/* ---------- updates (journal-driven, resumable) ---------- */
+
+// An update is four steps; the journal (store.journal()) is written BEFORE
+// each step, so an app restart or a power cut resumes exactly where it
+// stopped:
+//   1 unload (only if it was in memory)
+//   2 DELETE the installed copy
+//   3 download (POST + progress watch)
+//   4 reload (only if it was in memory)
+// A download in flight is considered lost after a device reboot: step 3
+// re-issues it. Resume re-checks the device state per step, so a step that
+// already finished before the cut is skipped, not redone.
+
+// Store list: the fake answers {data:[...]}; accept other shapes too.
+const storeList = async () => {
+  const r = await jget(`${BASE}/api/v1/models/?including_downloading=true`, 15000);
+  if (Array.isArray(r.data)) return r.data;
+  if (Array.isArray(r.entries)) return r.entries;
+  if (Array.isArray(r.groups)) return r.groups.flatMap((g) => g.entries || []);
+  return [];
+};
+const storeEntry = async (id) => (await storeList()).find((e) => e.id === id) || null;
+
+// Watches a download until it stops reporting 'downloading'. 'fail' throws;
+// a net failure (device gone) propagates — the journal owns the resume point.
+async function watchDownload(model, task, onProgress) {
+  for (let waited = 0; waited < DOWNLOAD_TIMEOUT_MS; waited += LOAD_POLL_MS) {
+    let st;
+    try {
+      st = await jget(`${BASE}/api/v1/models/${mpath(model)}/get_progress`, 10000);
+    } catch (e) {
+      if (failureKind(e) === 'net') throw e;
+      throw new Error('progress read failed: ' + e.message);
+    }
+    if (st.status === 'fail')
+      throw new Error(`download failed (${st.error_code || st.message || 'unknown'})`);
+    if (st.status !== 'downloading') {
+      const e = await storeEntry(model);
+      if (!e || e.need_update)
+        throw new Error('download finished but the model is not updated');
+      onProgress(1);
+      return e;
+    }
+    onProgress(typeof st.progress === 'number' ? st.progress / 100 : 0);
+    await new Promise((r) => setTimeout(r, LOAD_POLL_MS));
+  }
+  throw new Error('download timed out');
+}
+
+async function runUpdate(model, from, to, wasLoaded, startStep, queue, task) {
+  S.updateTask = task;
+  task.state = 'running';
+  task.steps = 4;
+  // 'to' is only a label from the store list; the real new version comes from
+  // the store entry once the download finished (newVersion).
+  let newVersion = to || null;
+  try {
+    for (let step = startStep; step <= 4; step++) {
+      if (task.stopRequested) {
+        // Stop "after the current step": the journal keeps the resume point
+        // (a stopped update is not complete; the next start picks it up).
+        S.store.writeJournal({ model, from, to, step, wasLoaded,
+          startedAt: task.startedAt, queue });
+        task.state = 'interrupted';
+        task.note = 'stopped before step ' + step;
+        logEvent('update-stopped', `${shortName(model)} · stopped before step ${step}`);
+        break;
+      }
+      S.store.writeJournal({ model, from, to, step, wasLoaded,
+        startedAt: task.startedAt, queue });
+      task.step = step;
+      task.label = shortName(model);
+      task.note = `step ${step} of 4`;
+      if (step === 1 && wasLoaded) {
+        const have = await runningIds().catch(() => []);
+        if (have.has(model)) {
+          markOwn(model);
+          await ensureUnloaded(model, null,
+            { timeoutMs: LOAD_TIMEOUT_MS, pollMs: LOAD_POLL_MS });
+        }
+      } else if (step === 2) {
+        const e = await storeEntry(model);
+        if (e && e.status !== 'downloading') {
+          await jdelete(`${BASE}/api/v1/models/${mpath(model)}`, 120000); // may take a while
+        } // already deleted, or a download is in flight: nothing to do
+      } else if (step === 3) {
+        const e = await storeEntry(model);
+        if (!(e && !e.need_update)) { // not up to date yet: (re)start the download
+          await jpost(`${BASE}/api/v1/models/${mpath(model)}/download`, {}, 30000);
+          const done = await watchDownload(model, task,
+            (p) => { task.progress = p; pushIfChanged(); });
+          newVersion = done.version || newVersion; // the store entry after the download
+        }
+      } else if (step === 4 && wasLoaded) {
+        markOwn(model);
+        await ensureLoaded(model, (p) => {
+          if (p != null) { task.progress = p / 100; pushIfChanged(); }
+        }, { timeoutMs: LOAD_TIMEOUT_MS, pollMs: LOAD_POLL_MS });
+      }
+    }
+    if (task.state !== 'interrupted') {
+      task.state = 'done';
+      task.progress = 1;
+      S.store.clearJournal();
+      logEvent('updated', `${shortName(model)} · ${from || '?'} → ${newVersion || 'updated'}`);
+    }
+  } catch (e) {
+    // Device gone (power cut) or hard error: the journal written before this
+    // step is the resume point; keep it and release the slot.
+    task.state = 'interrupted';
+    task.note = e.message;
+    logEvent('update-interrupted', `${shortName(model)} · step ${task.step} · ${e.message}`);
+  } finally {
+    S.updateTask = null;
+    pushIfChanged();
+  }
+  if (queue.length && task.state === 'done') {
+    const [next, ...rest] = queue;
+    const nt = S.tasks.get(next.taskId);
+    if (nt) { nt.state = 'running'; nt.step = 0; nt.progress = 0; nt.note = 'from queue'; }
+    runUpdate(next.model, next.from, next.to, next.wasLoaded, 1, rest,
+      nt || newTask('update', shortName(next.model), 'pc'));
+  } else if (S.restoreQueued) {
+    const o = S.restoreQueued;
+    S.restoreQueued = null;
+    startRestore(o);
+  } else if (S.coldRestore) {
+    // cold-start restore that deferred behind this update: run it now
+    S.coldRestore = false;
+    startRestore(null);
+  }
+}
+
+// Resume: on app start and after every outage. No-op unless a journal exists
+// and no update is already running.
+async function maybeResume() {
+  if (S.updateTask) return;
+  const j = S.store.journal();
+  if (!j) return;
+  if (S.restore) return; // restore is running; it defers while this journal exists
+  const queue = (j.queue || []).filter((q) => q.model !== j.model);
+  const task = newTask('update', shortName(j.model), 'pc');
+  task.note = `resumed at step ${j.step}`;
+  logEvent('update-resumed', `${shortName(j.model)} · step ${j.step}`);
+  runUpdate(j.model, j.from, j.to, j.wasLoaded, j.step, queue, task);
+}
+
+// Starts an update of one installed model. If a journal for the same model
+// exists (a stopped/interrupted update), it resumes from there — even when
+// the download already completed (need_update is then false, but the reload
+// step is still pending). Throws if the model is unknown, not installed, up
+// to date, or another update is in flight.
+async function update(modelId) {
+  if (S.restore) throw new Error('restore in progress, try again shortly');
+  if (S.updateTask) throw new Error('an update is already running');
+  const e = await storeEntry(modelId);
+  if (!e) throw new Error('model not found on device');
+  if (e.status !== 'installed' && e.status !== 'stopped' && e.status !== 'loaded')
+    throw new Error('model not installed (status ' + e.status + ')');
+  const j = S.store.journal();
+  if (j && j.model !== modelId)
+    throw new Error('another update is in flight (' + shortName(j.model) + ')');
+  const isResume = !!(j && j.model === modelId);
+  if (!e.need_update && !isResume) throw new Error('model is up to date');
+  const wasLoaded = isResume ? j.wasLoaded : (await runningIds()).has(modelId);
+  const task = newTask('update', shortName(modelId), 'pc');
+  const startStep = isResume ? j.step : 1;
+  const queue = isResume ? (j.queue || []).filter((q) => q.model !== modelId) : [];
+  if (isResume) {
+    task.note = `resumed at step ${startStep}`;
+    logEvent('update-resumed', `${shortName(modelId)} · step ${startStep}`);
+  }
+  runUpdate(modelId, e.version, e.version_label || null, wasLoaded, startStep, queue, task);
+  return { taskId: task.id };
+}
+
+// Queues every installed model that has an update, one at a time.
+async function updateAll() {
+  if (S.restore) throw new Error('restore in progress, try again shortly');
+  if (S.updateTask) return { taskIds: [S.updateTask.id] };
+  const queue = (await storeList())
+    .filter((e) => e.need_update && e.status !== 'downloading')
+    .map((e) => ({ model: e.id, from: e.version, to: e.version_label || null,
+      wasLoaded: false, taskId: '' }));
+  if (!queue.length) return { taskIds: [] };
+  const have = await runningIds().catch(() => new Set());
+  for (const q of queue) {
+    q.wasLoaded = have.has(q.model);
+    q.taskId = newTask('update', shortName(q.model), 'pc').id;
+  }
+  logEvent('update-all', `${queue.length} update(s) queued, one at a time`);
+  const first = queue.shift();
+  runUpdate(first.model, first.from, first.to, first.wasLoaded, 1, queue,
+    S.tasks.get(first.taskId));
+  return { taskIds: [...queue.map((q) => q.taskId), first.taskId] };
 }
 
 /* ---------- ac power ---------- */
@@ -435,6 +661,7 @@ function _reset() {
   S.lastIds = []; S.running = []; S.pending = [];
   S.snapshot = []; S.outage = null; S.outages = [];
   S.tasks = new Map(); S.taskSeq = 0; S.restore = null;
+  S.restoreQueued = null; S.updateTask = null; S.coldRestore = false;
   S.ownRecent = new Map(); S.acPower = null; S.lastPush = 0;
   OUTAGE_MS = 15000; STALE_MS = 60000; LOAD_POLL_MS = 1500;
 }
@@ -465,6 +692,9 @@ function wire(win) {
     S.store.setKept([...kept]);
     return { kept: S.store.care().kept };
   });
+  once('m3:care:update', (_e, arg) => update(String((arg && arg.id) || '')));
+  once('m3:care:updateAll', () => updateAll());
+  once('m3:care:stopTask', (_e, arg) => ({ ok: stopTask(String((arg && arg.id) || '')) }));
   if (win && win.webContents) {
     win.webContents.once('did-finish-load', () => {
       pushIfChanged(); S.lastPush = 0; // deliver the first state right away
@@ -479,4 +709,5 @@ module.exports = {
   _newTask: newTask, _stopTask: stopTask, _state: state, _reset,
   getAcPower, setAcPower, usage, appUsage, mondayOf, logEvent, markOwn,
   currentTask, state, start, wire,
+  update, updateAll, maybeResume,
 };

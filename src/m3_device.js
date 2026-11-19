@@ -40,4 +40,14 @@ async function jpost(url, body, timeoutMs = 60000) {
   return r.json();
 }
 
-module.exports = { BASE, P8800, authKey, jget, jpost };
+async function jdelete(url, timeoutMs = 60000) {
+  const r = await fetch(url, {
+    method: 'DELETE',
+    headers: hdr(authKey()),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`);
+  return r.json();
+}
+
+module.exports = { BASE, P8800, authKey, jget, jpost, jdelete };

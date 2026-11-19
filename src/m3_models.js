@@ -59,7 +59,28 @@ async function ensureLoaded(id, onProgress, opts = {}) {
   }
 }
 
-// Unload `id` from memory (POST …/stop).
+// Unload `id` from memory (POST …/stop) and wait until it actually leaves.
+// onProgress is unused for now (the device gives no unload progress); kept
+// for a symmetric shape with ensureLoaded.
+async function ensureUnloaded(id, onProgress, opts = {}) {
+  const timeoutMs = opts.timeoutMs || 10 * 60 * 1000;
+  const pollMs = opts.pollMs || 1500;
+  if (!id) throw new Error('no model id');
+  if (!(await runningIds()).has(id)) return; // already out
+  await jpost(`${BASE}/api/v1/models/${mpath(id)}/stop`, {}, 60000);
+  const t0 = Date.now();
+  for (;;) {
+    await new Promise(r => setTimeout(r, pollMs));
+    if (!(await runningIds()).has(id)) return;
+    const g = await jget(`${BASE}/api/v1/models/${mpath(id)}/get_progress`, 20000).catch(() => ({}));
+    if (/fail|error/i.test(String(g.status || '')))
+      throw new Error(`the Pocket could not unload ${shortName(id)}`);
+    if (Date.now() - t0 > timeoutMs)
+      throw new Error(`${shortName(id)} did not unload in ${Math.round(timeoutMs / 60000)} min`);
+  }
+}
+
+// Unload `id` from memory (POST …/stop), fire and forget.
 const unload = (id) => jpost(`${BASE}/api/v1/models/${mpath(id)}/stop`, {}, 60000);
 
-module.exports = { mpath, shortName, runningIds, fitPlan, ensureLoaded, unload };
+module.exports = { mpath, shortName, runningIds, fitPlan, ensureLoaded, ensureUnloaded, unload };
