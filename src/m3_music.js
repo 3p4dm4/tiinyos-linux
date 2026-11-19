@@ -3,9 +3,14 @@
  * Renderer never touches the network or the file[NEUTRALIZED: system: ]every call goes through
  * these handlers. Generation is fire-and-forget with progress events:
  *   'm3:music:progress' {phase: queued|loading|generating|saving|done|error, progress 0..1, note}
- *   'm3:music:done'     {wav, mp3, seconds, elapsedSec, session}
+ *   'm3:music:done'     {wav, mp3, seconds, seed, composer, writer, refName, elapsedSec, session}
  * The Pocket refuses loads silently when the NPU budget is full, so status
  * explicitly reports what is loaded and what AceStep would evict.
+ *
+ * Takes survive restarts: every take gets a `<name>.json` sidecar (store) and
+ * `m3:music:takes` rebuilds the list from the output folder. A cross-process
+ * lock (~/.config/music-lab/generate.lock) keeps two Music Lab processes from
+ * generating at once.
  */
 'use strict';
 const { BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
@@ -14,6 +19,7 @@ const os = require('os');
 const fs = require('fs');
 const { BASE, P8800, jget, jpost, authKey } = require('./m3_device');
 const { classify } = require('./m3_activity');
+const store = require('./m3music_store');
 
 const GEN_TIMEOUT_MS = 30 * 60 * 1000;
 const NOT_CHAT = /music|acestep|embed|rerank|ocr|asr|tts|whisper|bge|clip/i;
@@ -22,6 +28,9 @@ const NOT_CHAT = /music|acestep|embed|rerank|ocr|asr|tts|whisper|bge|clip/i;
  * { "outDir": "…", "refsDir": "…" } — defaults below; read once per window open
  * so editing the file needs no code change (restart of the window is enough). */
 const CONFIG_PATH = path.join(os.homedir(), '.config', 'music-lab', 'config.json');
+// one generation at a time ACROSS processes: the in-app window and the
+// standalone app share this config dir (and the one Pocket behind it)
+const LOCK_PATH = path.join(os.homedir(), '.config', 'music-lab', 'generate.lock');
 function labCfg() {
   let c = {};
   try { c = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { /* defaults */ }
@@ -35,8 +44,7 @@ function saveCfg(patch) {
   let cur = {};
   try { cur = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { /* fresh */ }
   Object.assign(cur, patch);
-  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cur, null, 2) + '\n');
+  store.writeJsonAtomic(CONFIG_PATH, cur); // atomic: a crash never leaves a half config
 }
 
 let win = null;
@@ -159,12 +167,20 @@ function slug(s) {
   return (s || 'track').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'track';
 }
 
+/* Lock lifecycle: m3:music:generate acquires (throws when another process
+ * holds it) and runJob's finally releases on EVERY exit — done, error, early
+ * composer failure. A process that dies mid-generation leaks the lock; the
+ * next acquire steals it (dead pid or over-age) instead of failing. */
 async function runJob(cfg) {
+  try { await runJobBody(cfg); } finally { store.releaseLock(LOCK_PATH); }
+}
+
+async function runJobBody(cfg) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const name = `${slug(cfg.caption.slice(0, 40))}-${stamp}`;
   const seed = cfg.seed || Math.floor(Math.random() * 1e6);
   const composer = cfg.composer || 'ACE-Step/AceStep-XL-Turbo';
-  job = { startedAt: Date.now(), session: null, phase: 'queued', progress: 0, note: 'submitting', seed };
+  job = { startedAt: Date.now(), session: null, phase: 'queued', progress: 0, note: 'submitting', seed, writer: cfg.writer || null };
   send('m3:music:progress', { ...job });
 
   // models to put back at the end (sent by the renderer, captured before the first take)
@@ -229,9 +245,21 @@ async function runJob(cfg) {
         fs.writeFileSync(mp3Path, await downloadMp3(job.session));
       } catch (e) { mp3Path = null; console.error('[M3] mp3 download:', e.message); }
     }
+    const elapsedSec = Math.round((Date.now() - job.startedAt) / 1000);
+    // the sidecar is what listTakes (and future restarts) read: how this take
+    // was made. Written atomically; a failure must not sink an already-saved
+    // take, so it degrades to a missing meta, like legacy takes.
+    try {
+      store.writeJsonAtomic(path.join(labCfg().outDir, `${name}.json`), store.sidecarFor({
+        createdAt: new Date(job.startedAt).toISOString(),
+        caption: cfg.caption, lyrics: cfg.lyrics || null, seconds: cfg.seconds, seed,
+        composer, writer: job.writer, reference: cfg.refName, elapsedSec,
+        wav: `${name}.wav`, mp3: mp3Path ? `${name}.mp3` : null,
+      }));
+    } catch (e) { console.error('[M3] sidecar:', e.message); }
     const done = {
-      wav: wavPath, mp3: mp3Path, seconds: cfg.seconds, seed, composer,
-      elapsedSec: Math.round((Date.now() - job.startedAt) / 1000), session: job.session,
+      wav: wavPath, mp3: mp3Path, seconds: cfg.seconds, seed, composer, writer: job.writer,
+      refName: cfg.refName || null, elapsedSec, session: job.session,
     };
     await restore(cfg.restore ? snapshot : []);
     job.phase = 'done';
@@ -270,13 +298,16 @@ function wire() {
   ipcWired = true;
 
   ipcMain.handle('m3:music:status', async () => {
-    const out = { ok: false, util: 0, loaded: [], writer: null, state: 'Device unreachable', busy: false, generating: !!job };
+    const out = { ok: false, util: 0, loaded: [], writer: null, state: 'Device unreachable', busy: false, generating: !!job, lockedBy: null };
+    // another Music Lab process holds the generation lock (never us: we would
+    // have refused to start, and the lock is released in runJob's finally)
+    out.lockedBy = store.validHolder(LOCK_PATH, GEN_TIMEOUT_MS + 5 * 60 * 1000);
     try {
-      const [npu, models, store] = await Promise.all([
+      const [npu, models, modelsStore] = await Promise.all([
         jget(`${P8800}/api/v1/npu/status`), jget(`${BASE}/v1/models`), jget(`${BASE}/api/v1/models/`),
       ]);
       const loaded = (models.data || []).map(x => x.id);
-      const storeList = (store.data || []).map(m => ({ id: m.id || m.model_id, status: m.status, progress: m.progress }));
+      const storeList = (modelsStore.data || []).map(m => ({ id: m.id || m.model_id, status: m.status, progress: m.progress }));
       const cl = classify({
         util: npu.util_percent || 0,
         models: storeList,
@@ -391,9 +422,14 @@ function wire() {
     return fs.readFileSync(real).toString('base64');
   });
 
+  ipcMain.handle('m3:music:takes', () => store.listTakes(labCfg().outDir));
+
   ipcMain.handle('m3:music:generate', (_e, cfg) => {
     if (job) throw new Error('a generation is already running');
-    runJob(cfg); // async, reports via events
+    const r = store.acquireLock(LOCK_PATH, { host: 'music-lab' }, GEN_TIMEOUT_MS + 5 * 60 * 1000);
+    if (!r.acquired)
+      throw new Error(`a generation is already running in another Music Lab window (pid ${r.holder.pid})`);
+    runJob(cfg); // async, reports via events; releases the lock in its finally
     return { started: true };
   });
 
