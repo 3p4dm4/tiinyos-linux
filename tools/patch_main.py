@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M3 — inject the tray menu items (Performance + Control Panel) into the minified
+"""M3 — inject the tray menu items (Device + Control Panel) into the minified
 main bundle. Supersedes s1-performance/patch_main.py (same anchor, two items).
 
 Idempotent: exits 0 without touching the file if the patch is already present.
@@ -9,7 +9,7 @@ import sys
 
 F = sys.argv[1] if len(sys.argv) > 1 else "out/main/index.js"
 ANCHOR = ',{type:"separator"},{label:t.quit,click:()=>this.quit()}].filter(Boolean)'
-PATCH = (',{type:"separator"},{label:"Performance",'
+PATCH = (',{type:"separator"},{label:"Device",'
          'click:()=>{try{require("./m3_performance").open()}catch(e){console.error("[M3] performance:",e)}}},'
          '{label:"Control Panel",'
          'click:()=>{try{require("./m3_cp").open()}catch(e){console.error("[M3] cp:",e)}}},'

@@ -31,6 +31,7 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   (`update.sh` shows `old → new`). Releases are tagged `vX.Y.Z` on GitHub.
 
 ### Changed
+- Tray menu item "Performance" is now "Device" (the window becomes the Device window).
 - `install.sh --uninstall` keeps your settings in `~/.config/tiinyos-linux`; the new `--purge` also
   removes them (restore policy, kept models, activity log, update journal, standalone profiles).
 
