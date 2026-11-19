@@ -99,6 +99,8 @@ rolls back with one command:
 
 ## Updating
 
+The installed version is in `VERSION` (see [CHANGELOG.md](CHANGELOG.md); releases are tagged `vX.Y.Z`).
+
 When new work lands in this repo, update the installed clone with one
 command:
 

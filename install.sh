@@ -50,6 +50,8 @@ if [[ $ACTION == uninstall ]]; then
 fi
 
 need python3
+VERSION="$(cat "$HERE/VERSION" 2>/dev/null || echo unknown)"
+say "TiinyOS on Linux $VERSION"
 [[ -f "$RES/app.asar" ]] || { say "no app.asar under $RES — point --clone-dir at your TiinyOS clone"; exit 1; }
 
 ASAR_BIN="${ASAR_BIN:-}"
@@ -179,7 +181,7 @@ if [[ -f "$HOME/.config/systemd/user/pcsvr-watchdog.timer" ]]; then
 fi
 run rm -f "$CLONE/tools/pcsvr-watchdog.sh"
 
-say "done. Restart the app ($CLONE/run.sh)."
+say "done: $VERSION installed. Restart the app ($CLONE/run.sh)."
 if [[ $PCSVR_NEW == 1 ]] && pgrep -xf 'python3 ./pcsvr -f pcsvr-api.yaml' >/dev/null; then
   say "the old Python pcsvr is still running; stop it so the app starts the new one:"
   say "  pkill -xf 'python3 ./pcsvr -f pcsvr-api.yaml'"

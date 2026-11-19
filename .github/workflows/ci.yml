@@ -31,6 +31,17 @@ jobs:
       - name: where this gate ran
         run: 'echo "Runner: ${RUNNER_NAME} (${RUNNER_ENVIRONMENT})" >> "$GITHUB_STEP_SUMMARY"'
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # full history: the changelog check diffs against the base branch
+      - name: changelog updated when code changes (PRs)
+        if: github.event_name == 'pull_request'
+        run: |
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          code="$(grep -E '^(src/|tools/|pcsvr-rs/|standalone/|install\.sh|update\.sh|build_clone\.sh|fetch_control_panel\.sh)' <<<"$changed" || true)"
+          if [[ -n "$code" ]] && ! grep -qx 'CHANGELOG.md' <<<"$changed"; then
+            echo "Code changed but CHANGELOG.md was not updated (add a line under Unreleased):"
+            echo "$code"
+            exit 1
+          fi
       - name: shell syntax gate (install/deploy scripts)
         run: |
           # Loop, not glob: `bash -n a.sh b.sh` only checks the first file.
