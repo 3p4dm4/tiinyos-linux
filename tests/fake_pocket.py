@@ -32,8 +32,8 @@ facts"; untested-on-device shapes are marked with ``# assumed``):
     GET    /api/v1/sys/status                          -> small realistic object (# assumed)
     GET    /api/v1/sys/ac_power/                       -> {status:"ok",ac_power:bool}
     POST   /api/v1/sys/ac_power/                       body {"switch":0|1}
-    GET    /api/v1/statistics/week_usage?start_date=   -> {start_date,days:{date:{id:{...}}}}
-    GET    /api/v1/statistics/app_week_usage?start_date= -> {start_date,apps:{name:{...}}}
+    GET    /api/v1/statistics/week_usage?start_date=   -> {date:{id:{...}}} (days at the top, as the device)
+    GET    /api/v1/statistics/app_week_usage?start_date= -> {app:{total_tokens,models:{id:n}}} (as the device)
 
 Auth mirrors the device: every endpoint requires ``Authorization: Bearer <non-
 empty>`` or it answers 401 ``{"detail":"Authorization header is missing"}``.
@@ -177,7 +177,7 @@ class _Control:
         """Reset state to a fresh scenario's initial conditions."""
         with self._p.lock:
             self._p.scenario = name
-            self._p.ac_power = True
+            self._p.ac_power = False  # off out of the box, as observed on a device
             self._p._load_catalog()
         return name
 
@@ -205,7 +205,7 @@ class FakePocket:
         self.server = None
         self.thread = None
         self.powered = True
-        self.ac_power = True
+        self.ac_power = False  # off out of the box, as observed on a device
         self._t0 = time.monotonic()
         self.control = _Control(self)
         self.models = {}
@@ -371,20 +371,20 @@ class FakePocket:
                 day[mid] = {"prompt": base, "completion": base // 2,
                             "total": base * 3 // 2, "requests": i * 3 + j + 1}
             days[d] = day
-        return {"start_date": start_date, "days": days}
+        return days  # the device puts the dates at the top level (observed 2026-11-19)
 
     def _app_usage(self, start_date):
         ids = sorted(m["id"] for m in self.models.values() if m["installed"]) or ["tiiny/cogito-mini"]
         apps = {}
-        for k, app in enumerate(["music-lab", "tiinyos", "control-panel"]):
+        for k, app in enumerate(["TiinyOS", "default"]):  # the two apps seen on a device
             per = {}
             total = 0
             for j, mid in enumerate(ids):
                 t = (k + 1) * (j + 1) * 400
                 per[mid] = t
                 total += t
-            apps[app] = {"total": total, "models": per}
-        return {"start_date": start_date, "apps": apps}
+            apps[app] = {"total_tokens": total, "models": per}
+        return apps  # the device puts the app names at the top level (observed 2026-11-19)
 
     def _unload_candidate(self, mid):
         target = self.models.get(mid)

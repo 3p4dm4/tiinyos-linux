@@ -141,6 +141,8 @@ class TestEndpoints(Base):
             self.assertIn(k, body)
 
     def test_ac_power_get_and_post(self):
+        self.assertEqual(self.get("/api/v1/sys/ac_power/")[1]["ac_power"], False)  # off out of the box
+        self.post("/api/v1/sys/ac_power/", {"switch": 1})
         self.assertEqual(self.get("/api/v1/sys/ac_power/")[1]["ac_power"], True)
         self.post("/api/v1/sys/ac_power/", {"switch": 0})
         self.assertEqual(self.get("/api/v1/sys/ac_power/")[1]["ac_power"], False)
@@ -150,18 +152,18 @@ class TestEndpoints(Base):
     def test_week_usage_has_seven_days(self):
         code, body = self.get("/api/v1/statistics/week_usage?start_date=2026-11-16")
         self.assertEqual(code, 200)
-        self.assertEqual(len(body["days"]), 7)
-        first = sorted(body["days"])[0]
+        self.assertEqual(len(body), 7)
+        first = sorted(body)[0]
         self.assertEqual(first, "2026-11-16")
-        for model, t in body["days"][first].items():
+        for model, t in body[first].items():
             for k in ("prompt", "completion", "total", "requests"):
                 self.assertIn(k, t)
 
     def test_app_week_usage(self):
         code, body = self.get("/api/v1/statistics/app_week_usage?start_date=2026-11-16")
         self.assertEqual(code, 200)
-        for app in body["apps"].values():
-            self.assertIn("total", app)
+        for app in body.values():
+            self.assertIn("total_tokens", app)
             self.assertIn("models", app)
 
 
