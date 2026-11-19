@@ -30,6 +30,10 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 - `VERSION` file and this changelog; `install.sh` and `update.sh` print the version
   (`update.sh` shows `old → new`). Releases are tagged `vX.Y.Z` on GitHub.
 
+### Changed
+- `install.sh --uninstall` keeps your settings in `~/.config/tiinyos-linux`; the new `--purge` also
+  removes them (restore policy, kept models, activity log, update journal, standalone profiles).
+
 ### Fixed
 - The preload bridge passed `invoke` on any IPC channel; it now allows only `m3:*`, both ways,
   and adds the `on` event subscription the Device window needs.

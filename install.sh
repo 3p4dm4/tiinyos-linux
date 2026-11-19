@@ -10,6 +10,9 @@
 # Usage:
 #   ./install.sh [--clone-dir DIR] [--dry-run]
 #   ./install.sh --uninstall [--clone-dir DIR]
+#   ./install.sh --purge [--clone-dir DIR]   # --uninstall + delete our settings and logs
+#                                            # (~/.config/tiinyos-linux: restore policy, kept models,
+#                                            #  activity log, update journal, standalone profiles)
 #
 # The pristine bundle is never touched: the first run saves app.asar.orig and
 # every apply regenerates app.asar from it. Rollback is --uninstall (or
@@ -18,13 +21,14 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLONE="${TIINYOS_CLONE_DIR:-$HOME/.local/tiinyos-clone}"
-DRY=0; ACTION=install
+DRY=0; ACTION=install; PURGE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clone-dir) CLONE="$2"; shift 2 ;;
     --dry-run)   DRY=1; shift ;;
     --uninstall) ACTION=uninstall; shift ;;
-    -h|--help)   sed -n '2,15p' "$0"; exit 0 ;;
+    --purge)     ACTION=uninstall; PURGE=1; shift ;;
+    -h|--help)   sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -48,6 +52,13 @@ if [[ $ACTION == uninstall ]]; then
   PCS="$RES/pcsvr/linux"
   if [[ -f "$PCS/pcsvr.before-install" ]]; then run mv -f "$PCS/pcsvr.before-install" "$PCS/pcsvr"
   elif [[ -f "$PCS/pcsvr" && $(head -c2 "$PCS/pcsvr") != '#!' ]]; then run rm -f "$PCS/pcsvr"; fi  # only ours (binary)
+  if [[ $PURGE == 1 ]]; then
+    # our own state only: the clone, the device and your generated files are untouched
+    run rm -rf "$HOME/.config/tiinyos-linux"
+    say "purged: ~/.config/tiinyos-linux removed"
+  else
+    say "kept your settings in ~/.config/tiinyos-linux (remove them with --purge)"
+  fi
   say "uninstalled: pristine app.asar restored. Restart the app."
   exit 0
 fi
