@@ -225,3 +225,23 @@ test('shortName keeps the last path segment', () => {
   assert.equal(H.shortName('org/name'), 'name');
   assert.equal(H.shortName('plain'), 'plain');
 });
+
+test('useTags derives the Use pills from type + capabilities', () => {
+  // chat (main capability / Image-Text-to-Text) + vision
+  assert.deepEqual(
+    H.useTags({ type: 'Image-Text-to-Text', capabilities: ['main'], supports_vision: true }),
+    ['chat', 'vision']);
+  // decision (systemone) takes precedence over chat
+  assert.deepEqual(
+    H.useTags({ type: 'Text Classification', capabilities: ['systemone'] }),
+    ['decision']);
+  // embedding
+  assert.deepEqual(H.useTags({ type: 'Text Embedding', capabilities: ['embedding'] }), ['embedding']);
+  // music / media are not chat
+  assert.deepEqual(H.useTags({ type: 'Music Generation', capabilities: ['music'] }), ['music']);
+  // speech + asr
+  assert.deepEqual(H.useTags({ type: 'Text-to-Speech', capabilities: ['tts'] }), ['speech']);
+  assert.deepEqual(H.useTags({ type: 'ASR', capabilities: [] }), ['asr']);
+  // nothing recognised -> raw type, lowercased
+  assert.deepEqual(H.useTags({ type: 'OCR' }), ['ocr']);
+});

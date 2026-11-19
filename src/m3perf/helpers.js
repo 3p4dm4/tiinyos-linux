@@ -260,6 +260,26 @@
     return i >= 0 ? s.slice(i + 1) : s;
   }
 
+  // Usage tags for a model, from its type + capabilities (the "Use" pills).
+  // Canonical order: decision before chat, then embedding/speech/asr/music/
+  // video/vision. Falls back to the raw type when nothing matches.
+  function useTags(m) {
+    m = m || {};
+    var caps = m.capabilities || [], t = m.type || '';
+    function has(c) { return caps.indexOf(c) >= 0; }
+    var seen = [];
+    if (has('systemone') || /classif/i.test(t)) seen.push('decision');
+    else if (/text generation|image-text/i.test(t) || m.supports_chat || has('main')) seen.push('chat');
+    if (has('embedding') || /embedding/i.test(t)) seen.push('embedding');
+    if (/text-to-speech/i.test(t)) seen.push('speech');
+    if (/^asr$|speech to text/i.test(t)) seen.push('asr');
+    if (/music/i.test(t)) seen.push('music');
+    if (/text-to-video/i.test(t)) seen.push('video');
+    if (m.supports_vision) seen.push('vision');
+    if (!seen.length) seen.push((t || 'n/a').toLowerCase());
+    return seen;
+  }
+
   // reach {state, lastRead, since, everyMs} -> {word, state, detail}
   function stripReach(reach, now) {
     if (!reach || !reach.state) {
@@ -327,7 +347,7 @@
     addDays: addDays, mondayOf: mondayOf, weekDates: weekDates, weekRange: weekRange,
     usageTotals: usageTotals, usageByModel: usageByModel, usagePerDay: usagePerDay,
     busiestDay: busiestDay, usageByApp: usageByApp,
-    seriesSlots: seriesSlots, shortName: shortName,
+    seriesSlots: seriesSlots, shortName: shortName, useTags: useTags,
     stripReach: stripReach, requestsLine: requestsLine, topTask: topTask, taskLine: taskLine,
   };
 });

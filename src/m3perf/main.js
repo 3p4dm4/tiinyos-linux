@@ -5,6 +5,7 @@
   function boot() {
     M3.tabs.init();
     M3.status.init();
+    M3.models.init();
     M3.data.start();
     if (window.m3 && window.m3.ready) window.m3.ready();
   }

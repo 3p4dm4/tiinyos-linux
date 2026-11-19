@@ -221,19 +221,7 @@ M3.status = (function () {
   }
 
   /* ---------- In memory ---------- */
-  function useTags(m) {
-    var caps = m.capabilities || [], t = m.type || '', seen = [];
-    if (/classif/i.test(t) || caps.indexOf('systemone') >= 0) seen.push('decision');
-    else if (/text generation|image-text/i.test(t) || m.supports_chat || caps.indexOf('main') >= 0) seen.push('chat');
-    if (/embedding/i.test(t) || caps.indexOf('embedding') >= 0) seen.push('embedding');
-    if (/text-to-speech/i.test(t)) seen.push('speech');
-    if (/^asr$|speech to text/i.test(t)) seen.push('asr');
-    if (/music/i.test(t)) seen.push('music');
-    if (/text-to-video/i.test(t)) seen.push('video');
-    if (m.supports_vision) seen.push('vision');
-    if (!seen.length) seen.push((t || 'n/a').toLowerCase());
-    return seen;
-  }
+  function useTags(m) { return h.useTags(m); }
   function restoreSrc(care, id) {
     if (!care) return '';
     var t = (care.tasks || []).some(function (x) { return x.kind === 'restore' && x.label === id; });
