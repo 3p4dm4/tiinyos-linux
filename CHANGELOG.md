@@ -10,6 +10,11 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 ## [Unreleased]
 
 ### Added
+- Fake Tiiny Pocket for tests (`tests/fake_pocket.py`, stdlib only): a scriptable
+  device on loopback with scenarios (normal, slow_load, npu_full, power_cut,
+  update_available) and simulated time; `src/m3_device.js` base URL is now
+  overridable with env `TIINY_BASE` so the JS client can be tested against it
+  (Python + Node test suites).
 - Device window design and engine/UI contract (`docs/design/`) for 0.4.0 Device care.
 - `VERSION` file and this changelog; `install.sh` and `update.sh` print the version
   (`update.sh` shows `old → new`). Releases are tagged `vX.Y.Z` on GitHub.

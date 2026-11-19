@@ -5,8 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const BASE = 'http://api.tiiny';
-const P8800 = 'http://p8800.api.tiiny';
+/* Base URLs. Overridable via env TIINY_BASE so tests can point both at the fake
+ * device (tests/fake_pocket.py) on localhost; when unset the real device names
+ * are used and behaviour is unchanged. One URL serves both roles in the fake. */
+const BASE = process.env.TIINY_BASE || 'http://api.tiiny';
+const P8800 = process.env.TIINY_BASE || 'http://p8800.api.tiiny';
 
 function authKey() {
   try {
