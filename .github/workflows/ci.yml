@@ -45,7 +45,7 @@ jobs:
       - name: shell syntax gate (install/deploy scripts)
         run: |
           # Loop, not glob: `bash -n a.sh b.sh` only checks the first file.
-          for f in install.sh update.sh build_clone.sh fetch_control_panel.sh tools/launch.sh tools/build_pcsvr.sh; do bash -n "$f"; done
+          for f in install.sh update.sh build_clone.sh fetch_control_panel.sh tools/launch.sh tools/build_pcsvr.sh standalone/launch.sh; do bash -n "$f"; done
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: python compile (tools + tests)
@@ -54,9 +54,9 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: JS syntax gate (src/m3_*)
+      - name: JS syntax gate (src/m3_* + standalone)
         run: |
-          for f in src/*.js; do node --check "$f"; done
+          for f in src/*.js standalone/*.js; do node --check "$f"; done
       - name: pcsvr-rs (Linux PC service) — clippy + tests, leak test included
         working-directory: pcsvr-rs
         run: |

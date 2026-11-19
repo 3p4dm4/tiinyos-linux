@@ -10,6 +10,17 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 ## [Unreleased]
 
 ### Added
+- **Standalone launcher for every tool** (`standalone/`): `standalone/launch.sh <tool>`
+  (plus `--list`) runs a TiinyOS tool as its own app without the TiinyOS app, from the same
+  source — today **Device**. It builds a symlink farm around the clone's Electron and passes the
+  tool via env; each tool is single-instance (its own name + userData before the lock). The
+  Device window (`src/m3_performance.js`) now resolves its renderer html in both the bundle and
+  the repo.
+- **Cross-process engine lock** (`src/m3_lock.js`, pure Node): `acquire`/`release`/`holder` with a
+  pid-ownership and staleness model, so the care engine runs in exactly one process; tested in
+  `tests/js/m3_lock.test.js`.
+- **"Tiiny Device" desktop entry** (`install.sh`), pointing at the standalone launcher; removed on
+  `--uninstall`.
 - Fake Tiiny Pocket for tests (`tests/fake_pocket.py`, stdlib only): a scriptable
   device on loopback with scenarios (normal, slow_load, npu_full, power_cut,
   update_available) and simulated time; `src/m3_device.js` base URL is now
