@@ -40,6 +40,9 @@ if [[ $ACTION == uninstall ]]; then
   [[ -f "$RES/app.asar.orig" ]] || { say "nothing to uninstall (no app.asar.orig)"; exit 0; }
   run cp "$RES/app.asar.orig" "$RES/app.asar"
   run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  # standalone Device entry: added in both the applications dir and the Desktop,
+  # so --uninstall removes both (existing entries' behaviour left as before)
+  run rm -f "$HOME/Desktop/Tiiny Device.desktop" "$HOME/.local/share/applications/tiiny-device.desktop"
   run rm -f "$CLONE/launch.sh"
   # the Linux PC service is not part of the pristine bundle: put back what was there before
   PCS="$RES/pcsvr/linux"
@@ -137,9 +140,27 @@ Path=$HOME/.local/share/tiinyos-linux/control-panel
 Terminal=false
 Categories=Utility;
 EOF
+  # Standalone Device window (runs without the TiinyOS app, same source).
+  # Icon: src/ ships no icon asset, so we reuse the app logo the TiinyOS entry
+  # already points at (present in the clone after install).
+  cat > "$HOME/.local/share/applications/tiiny-device.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Tiiny Device
+Comment=Device window (standalone, without the TiinyOS app)
+Exec=$HERE/standalone/launch.sh device
+Path=$HERE/standalone
+Icon=$CLONE/electron/resources/app-unpacked/out/main/tiiny-logo.png
+StartupWMClass=tiiny-device
+StartupNotify=false
+Terminal=false
+Categories=Utility;
+EOF
   cp "$HOME/.local/share/applications/tiinyos.desktop" "$HOME/Desktop/TiinyOS.desktop"
   cp "$HOME/.local/share/applications/tiiny-control-panel.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
-  chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  cp "$HOME/.local/share/applications/tiiny-device.desktop" "$HOME/Desktop/Tiiny Device.desktop"
+  chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop" "$HOME/Desktop/Tiiny Device.desktop"
 fi
 
 # 7b. launcher + Linux PC service (pcsvr-rs, built from this repo)
