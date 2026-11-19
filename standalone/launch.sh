@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Music Lab standalone — launcher.
 # The clone's Electron binary is a packaged build: it always loads the
-# resources/app sitting next to it and ignores an app path on argv.
+# resources/app.asar sitting next to it and ignores an app path on argv.
 # So we build a small symlink farm around the clone's binary where
 # resources/app points at this folder instead. No second download, no copies.
 # The farm is cached, but resources/app is re-pointed on EVERY launch

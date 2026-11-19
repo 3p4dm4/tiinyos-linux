@@ -49,8 +49,7 @@ jobs:
           for f in src/*.js src/m3music/*.js standalone/*.js; do node --check "$f"; done
       - name: node tests (tests/js, when present)
         run: |
-          # tests/js/ is added by a later change of the standalone hardening
-          # (the other worker's *.test.js) — the step passes while it is absent.
+          # node:test suites for the main-process helpers; no-op while there are none.
           if compgen -G 'tests/js/*.test.js' >/dev/null; then
             node --test tests/js/
           fi
