@@ -5,6 +5,7 @@
 #   * Performance window: capability-aware benchmark of the Tiiny Pocket device
 #   * Control Panel window: the community Tiiny Control Panel embedded in the app
 #   * Tray menu entries for both
+#   * Linux PC service (pcsvr, built from pcsvr-rs/ with cargo)
 #
 # Usage:
 #   ./install.sh [--clone-dir DIR] [--dry-run]
@@ -39,10 +40,12 @@ if [[ $ACTION == uninstall ]]; then
   [[ -f "$RES/app.asar.orig" ]] || { say "nothing to uninstall (no app.asar.orig)"; exit 0; }
   run cp "$RES/app.asar.orig" "$RES/app.asar"
   run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
-  run rm -f "$CLONE/tools/pcsvr-watchdog.sh" "$CLONE/launch.sh"
-  run rm -f "$HOME/.config/systemd/user/pcsvr-watchdog.service" "$HOME/.config/systemd/user/pcsvr-watchdog.timer"
+  run rm -f "$CLONE/launch.sh"
+  # the Linux PC service is not part of the pristine bundle: put back what was there before
+  PCS="$RES/pcsvr/linux"
+  if [[ -f "$PCS/pcsvr.before-install" ]]; then run mv -f "$PCS/pcsvr.before-install" "$PCS/pcsvr"
+  elif [[ -f "$PCS/pcsvr" && $(head -c2 "$PCS/pcsvr") != '#!' ]]; then run rm -f "$PCS/pcsvr"; fi  # only ours (binary)
   say "uninstalled: pristine app.asar restored. Restart the app."
-  say "if you enabled the watchdog timer: systemctl --user disable --now pcsvr-watchdog.timer"
   exit 0
 fi
 
@@ -71,7 +74,7 @@ run sh -c "$ASAR_BIN extract '$TMP/app.asar' '$UNP'"
 
 # 3. feature files
 run cp "$HERE"/src/m3_performance.js "$HERE"/src/m3_device.js "$HERE"/src/m3_bench.js \
-       "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$HERE"/src/m3_music.js "$HERE"/src/m3_activity.js "$UNP/out/main/"
+       "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$HERE"/src/m3_music.js "$HERE"/src/m3_activity.js "$HERE"/src/m3_ballshape.js "$UNP/out/main/"
 run cp "$HERE"/src/performance.html "$HERE"/src/performance.css "$HERE"/src/music.html "$HERE"/src/music.css "$HERE"/src/music-lab.png "$HERE"/src/music-lab.svg "$UNP/out/renderer/"
 run rm -rf "$UNP/out/renderer/m3perf" "$UNP/out/renderer/m3music"
 run cp -r "$HERE/src/m3perf" "$UNP/out/renderer/m3perf"
@@ -98,7 +101,7 @@ import json, sys
 d = open(sys.argv[1], "rb").read()
 n = int.from_bytes(d[12:16], "little")
 h = json.dumps(json.loads(d[16:16 + n]))
-for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_activity.js", "m3_music.js", "music.html"):
+for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_activity.js", "m3_ballshape.js", "m3_music.js", "music.html"):
     assert f in h, f"{f} missing from header"
 assert "integrity" in h, "no integrity block"
 print("[tiinyos-linux] verify: header OK")
@@ -138,22 +141,48 @@ EOF
   chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
 fi
 
-# 7b. pcsvr watchdog (vendor thread-leak guard, see docs/vendor-thread-leak.md)
-run mkdir -p "$CLONE/tools"
-run cp "$HERE/tools/pcsvr-watchdog.sh" "$CLONE/tools/pcsvr-watchdog.sh"
+# 7b. launcher + Linux PC service (pcsvr-rs, built from this repo)
+#     The app spawns <resources>/pcsvr/linux/pcsvr -f pcsvr-api.yaml when nothing
+#     answers on 127.0.0.1:60000; Tiiny ships no Linux build, so we build ours.
+#     Needs cargo (rustup.rs); without it everything else still installs.
 run install -m 0755 "$HERE/tools/launch.sh" "$CLONE/launch.sh"
-run chmod +x "$CLONE/tools/pcsvr-watchdog.sh"
-run mkdir -p "$HOME/.config/systemd/user"
-# ExecStart must point at THIS clone, wherever the user put it
-if [[ $DRY == 1 ]]; then
-  echo "DRY: sed ExecStart -> $CLONE/tools/pcsvr-watchdog.sh into ~/.config/systemd/user/"
+PCS="$RES/pcsvr/linux"
+PCSVR_NEW=0
+if command -v cargo >/dev/null 2>&1; then
+  if [[ $DRY == 1 ]]; then
+    echo "DRY: tools/build_pcsvr.sh --dest <tmp> and install pcsvr into $PCS"
+  else
+    "$HERE/tools/build_pcsvr.sh" --dest "$TMP/pcsvr" >"$TMP/pcsvr-build.log" 2>&1 \
+      || { cat "$TMP/pcsvr-build.log" >&2; say "pcsvr build failed (log above)"; exit 1; }
+    mkdir -p "$PCS"
+    # keep whatever was there (e.g. the old Python shim) once, for --uninstall
+    if [[ -f "$PCS/pcsvr" && ! -f "$PCS/pcsvr.before-install" && $(head -c2 "$PCS/pcsvr") == '#!' ]]; then
+      cp -p "$PCS/pcsvr" "$PCS/pcsvr.before-install"
+    fi
+    install -m 0755 "$TMP/pcsvr/pcsvr" "$PCS/pcsvr"
+    # the app refuses to start the service without this file; device identity
+    # is read from the device itself, the file only holds address and fallbacks
+    [[ -f "$PCS/pcsvr-api.yaml" ]] || install -m 0644 "$HERE/pcsvr-rs/pcsvr-api.yaml.example" "$PCS/pcsvr-api.yaml"
+    say "pcsvr: $("$PCS/pcsvr" --version) installed in $PCS"
+    PCSVR_NEW=1
+  fi
 else
-  sed "s#%h/.local/tiinyos-clone/tools/pcsvr-watchdog.sh#$CLONE/tools/pcsvr-watchdog.sh#" \
-    "$HERE/tools/systemd/pcsvr-watchdog.service" > "$HOME/.config/systemd/user/pcsvr-watchdog.service"
-  cp "$HERE/tools/systemd/pcsvr-watchdog.timer" "$HOME/.config/systemd/user/"
+  say "cargo not found: Linux PC service NOT installed (the app may not see the device)."
+  say "  install Rust (https://rustup.rs) and re-run ./install.sh"
 fi
 
+# 7c. retire the old pcsvr watchdog: it only guarded the leaking Python shim
+if [[ -f "$HOME/.config/systemd/user/pcsvr-watchdog.timer" ]]; then
+  run systemctl --user disable --now pcsvr-watchdog.timer || true
+  run rm -f "$HOME/.config/systemd/user/pcsvr-watchdog.service" "$HOME/.config/systemd/user/pcsvr-watchdog.timer"
+  run systemctl --user daemon-reload || true
+  say "old pcsvr watchdog timer disabled and removed (no longer needed)"
+fi
+run rm -f "$CLONE/tools/pcsvr-watchdog.sh"
+
 say "done. Restart the app ($CLONE/run.sh)."
-say "recommended: guard the vendor thread leak (docs/vendor-thread-leak.md):"
-say "  systemctl --user daemon-reload && systemctl --user enable --now pcsvr-watchdog.timer"
+if [[ $PCSVR_NEW == 1 ]] && pgrep -xf 'python3 ./pcsvr -f pcsvr-api.yaml' >/dev/null; then
+  say "the old Python pcsvr is still running; stop it so the app starts the new one:"
+  say "  pkill -xf 'python3 ./pcsvr -f pcsvr-api.yaml'"
+fi
 say "rollback anytime: ./install.sh --uninstall"

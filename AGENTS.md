@@ -3,8 +3,8 @@
 ## What this repo is
 
 Feature pack that patches the official TiinyOS Electron bundle to run on Linux
-with two added windows (Performance, embedded Control Panel) plus a guard for
-a vendor bug. There is **no proprietary code here**: the bundle is downloaded at
+with two added windows (Performance, embedded Control Panel) plus the Linux
+PC service (`pcsvr-rs/`, Rust) the app needs to see the device. There is **no proprietary code here**: the bundle is downloaded at
 build time by `build_clone.sh`. Keep it that way — never commit bundle
 artifacts, `app.asar*`, Electron binaries, or anything under a clone dir.
 
@@ -60,19 +60,19 @@ Rules learned the hard way:
 | file | role |
 |---|---|
 | `build_clone.sh` | official NSIS bundle + upstream Electron → clean clone |
-| `install.sh` | unpack pristine asar, inject `src/`, run patch, repack with correct unpacked/integrity flags, verify header, desktop entries, watchdog install |
+| `install.sh` | unpack pristine asar, inject `src/`, run patch, repack with correct unpacked/integrity flags, verify header, desktop entries, build + install `pcsvr-rs`, retire the old watchdog |
 | `tools/patch_main.py` | tray menu entries (markers `M3-PERF`, `M3-CP`); idempotent |
-| `tools/patch_ball_*.py`, `tools/patch_skip_taskbar.py` | Linux fixes for the Floating Ball / panels (click, blur-hide, taskbar via `wmctrl`); anchor-based, fail on bundle drift |
+| `tools/patch_ball_*.py`, `tools/patch_skip_taskbar.py` | Linux fixes for the Floating Ball / panels (click area shaped to the ball via `src/m3_ballshape.js`, blur-hide, taskbar via `wmctrl`); anchor-based, fail on bundle drift |
 | `tools/launch.sh` | installed as `<clone>/launch.sh`, target of the desktop icon: pre-flight checks + "window really on screen" check |
 | `tools/fix_unpacked.py` | restores unpacked/integrity flags lost by asar pack |
-| `tools/pcsvr-watchdog.sh` | vendor thread-leak guard (see `docs/vendor-thread-leak.md`) |
-| `src/` | feature files (main-process js, renderer html/css, `m3perf/`) |
+| `pcsvr-rs/`, `tools/build_pcsvr.sh` | the Linux PC service in Rust (std only) and its build/stage script; `cargo test` includes the 500-connection leak test |
+| `src/` | feature files (main-process js, renderer html/css, `m3perf/`); `m3_activity.js` = activity indicator (device poll + ball dot + tray tooltip), `tools/patch_activity.py` wires it |
 
 ## Docs map
 
 * README — human entry point (install, how it works, limitations)
 * `docs/network.md` — device USB-network setup
-* `docs/vendor-thread-leak.md` — RCA of the vendor bug + watchdog
+* `docs/pcsvr-thread-leak.md` — RCA of the leak in our old Linux shim + the Rust fix
 * `docs/TROUBLESHOOTING.md` — symptom → cause → fix
 * `docs/TEST_REPORT.md` — what "verified" means here, with evidence
 

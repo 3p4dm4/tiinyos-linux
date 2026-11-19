@@ -23,17 +23,19 @@ lines, then `curl -s -m 3 http://auth.api.tiiny/` to confirm reachability.
 
 ## Fans go loud after hours/days of uptime, system slow
 
-Known vendor thread leak in the `pcsvr` shim. Confirm:
-`awk '/Threads/{print $2}' /proc/$(pgrep -xf 'python3 ./pcsvr -f pcsvr-api.yaml')/status`
-— hundreds and climbing is it. Fix: enable the shipped watchdog, see
-[vendor-thread-leak.md](vendor-thread-leak.md).
+Thread leak of our old Python `pcsvr` shim (not Tiiny's code). Confirm:
+`pgrep -xf 'python3 ./pcsvr -f pcsvr-api.yaml'` finds a process. Fix: re-run
+`./install.sh` (installs the Rust service), stop the old shim with
+`pkill -xf 'python3 ./pcsvr -f pcsvr-api.yaml'`, restart the app — see
+[pcsvr-thread-leak.md](pcsvr-thread-leak.md).
 
 ## Device features stop working while the app stays open
 
-The shim can die functionally (fd exhaustion: process alive, port 60000
-silent). The watchdog restarts it within 5 min; by hand:
-`pkill -xf 'python3 ./pcsvr -f pcsvr-api.yaml'` and restart the app (it
-relaunches the shim).
+Check the local service: `curl -s -m 3 localhost:60000/status` must answer
+`{"ok": true, ...}`. No answer from the old Python shim is its fd exhaustion
+(see above). No answer at all and no process: `launch.sh` warns when
+`electron/resources/pcsvr/linux/pcsvr` is missing — re-run `./install.sh`.
+The app restarts the service itself when nothing answers on port 60000.
 
 ## `Could not load the "sharp" module` / `Desktop integration detect failed`
 
@@ -71,6 +73,15 @@ Note for testing: a CDP screenshot or `did-finish-load` does not prove a
 window is visible (the page renders even when the window never appears);
 check the window state (`xwininfo -id <win>` → IsViewable) or a compositor
 screenshot (`gnome-screenshot -f out.png`).
+
+## Clicks next to the Floating Ball do nothing / the activity dot is far from the ball
+
+Older installs only (before 2026-11-19). The ball lives in a transparent
+462x300 window; the old Linux fix kept the whole window clickable, so that
+invisible rectangle swallowed clicks, and the activity dot sat in its corner.
+Rerun `./install.sh`: on Linux the window is now shaped to the ball when idle
+(`src/m3_ballshape.js`). Check: click right next to the ball — the window
+below must react.
 
 ## Floating Ball listed as an extra, icon-less window in the taskbar
 

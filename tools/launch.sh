@@ -11,7 +11,7 @@
 #      single instance: a new launch would be "absorbed") → asks whether to close it
 #   3. app.asar really contains the patches (asar header) → otherwise stops
 #   4. Wayland session: X frame helper (mutter-x11-frames) alive → otherwise restarts it
-#   5. non-blocking checks: Pocket reachable, /etc/hosts, Control Panel, watchdog
+#   5. non-blocking checks: Pocket reachable, /etc/hosts, Control Panel, Linux PC service
 #   6. detached launch + verification: within 40s an app window is actually visible
 # Log: ~/.cache/tiinyos/launch.log (startup) and ~/.cache/tiinyos/app.log (app).
 set -uo pipefail
@@ -115,7 +115,10 @@ if timeout 2 bash -c '</dev/tcp/127.0.0.1/8765' 2>/dev/null; then log "Control P
 elif [[ -f ${TIINY_CP_DIR:-/nonexistent}/tiiny_ui.py ]]; then log "Control Panel stopped: the app will start it from $TIINY_CP_DIR"
 else warn "Control Panel not found in $TIINY_CP_DIR (./fetch_control_panel.sh): the Control Panel window will not work."; fi
 command -v wmctrl >/dev/null || warn "wmctrl missing (sudo apt install wmctrl): the Floating Ball will also appear in the taskbar."
-systemctl --user is-active --quiet pcsvr-watchdog.timer || warn "pcsvr watchdog not active (systemctl --user enable --now pcsvr-watchdog.timer)."
+PCSVR="$RES/pcsvr/linux/pcsvr"
+if [[ ! -x $PCSVR ]]; then warn "Linux PC service missing ($PCSVR): the app will not see the device. Re-run ./install.sh (needs cargo)."
+elif [[ $(head -c2 "$PCSVR") == '#!' ]]; then warn "Old Python pcsvr in place (it leaks threads): re-run ./install.sh to get the Rust one."
+else log "pcsvr ok ($("$PCSVR" --version 2>/dev/null))"; fi
 
 # 6. detached launch + real visibility verification
 [[ -f "$APPLOG" ]] && mv -f "$APPLOG" "$APPLOG.1"

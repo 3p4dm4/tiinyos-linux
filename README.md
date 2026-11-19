@@ -7,7 +7,7 @@
 </div>
 
 <div align="center">
-  <img src="docs/assets/performance-window.png" alt="TiinyOS on Linux — performance window" width="800"/>
+  <img src="docs/assets/app-agent-store.png" alt="The official TiinyOS app running on Linux — agent store" width="700"/>
 </div>
 
 # TiinyOS — Linux
@@ -54,9 +54,38 @@ have rough edges on Linux — open an issue with the log from
 |---|---|
 | **Performance window** | A live view of the device: RAM, storage, NPU state, model store, process footprint |
 | **Control Panel** | The device's management pages (models, network, power) as a native window — no browser needed |
-| **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory) and a live activity indicator |
+| **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory); on Linux only the ball itself takes clicks, the transparent area around it lets them through |
+| **Activity indicator** | Shows whether the Pocket is working — downloading, loading a model, generating, idle — on the Floating Ball and in the tray tooltip; [details below](#activity-indicator) |
 | **Agent store** | Browse, install, and update AI agents straight from the Linux app |
-| **Watchdog** | The leaked vendor bundle holds up to **~3,000 threads/h** (about 60/h while idle); a user systemd timer every 5 minutes keeps the count near zero — see [docs/vendor-thread-leak.md](docs/vendor-thread-leak.md) |
+| **Linux PC service** | `pcsvr`, the local service the app needs to see the device, which Tiiny ships only for Windows: ours is a small Rust binary (`pcsvr-rs/`) with a cap on every resource, built by `install.sh` — it replaced a Python shim that leaked threads, see [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md) |
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/assets/performance-window.png" alt="Performance window" width="420"/><br/><sub>Performance window</sub></td>
+    <td align="center"><img src="docs/assets/control-panel.png" alt="Control Panel window, models page" width="420"/><br/><sub>Control Panel window</sub></td>
+  </tr>
+</table>
+
+## Activity indicator
+
+The official app does not show when the Pocket is busy. The indicator asks the
+device every 5 seconds (read-only: NPU status, model store, models in memory)
+and shows one state:
+
+| state | when | Floating Ball | tray tooltip |
+|---|---|---|---|
+| Downloading | a model is being downloaded | orange dot, pulsing | `TiinyOS — Downloading <model> · 42%` |
+| Loading | a model is being loaded into memory | orange dot, pulsing | `TiinyOS — Loading <model> · 70%` |
+| Working | NPU utilization at 25% or more (generation, inference) | orange dot, pulsing | `TiinyOS — Working · NPU 63%` |
+| Idle | device reachable, nothing of the above | green dot, only while the cursor is on the ball | `TiinyOS — Idle · 2 model(s) in memory` |
+| Unreachable | the device does not answer | same as Idle (green dot on hover) — only the text tells them apart | `TiinyOS — Device unreachable` |
+
+The dot sits on the top-right of the ball; hovering the ball shows the same
+text as its tooltip:
+
+<img src="docs/assets/floating-ball-activity.png" alt="Floating Ball: green dot and the tooltip 'Idle · 3 model(s) in memory'"/>
+ Code: `src/m3_activity.js` (the `classify()` function is
+pure and decides the state), wired by `tools/patch_activity.py`.
 
 ## How it works
 
@@ -100,6 +129,13 @@ entries and the `/etc/hosts` shim line, and deletes the clone.
 
 ## Known issues
 
+- **`install.sh` needs Rust (`cargo`)** to build the Linux PC service — get it
+  from [rustup.rs](https://rustup.rs). Without it everything else installs, but
+  the app may not see the device.
+- **No uuid in `device.json`** — the service reads the serial (`serial_number`)
+  and name from the device; a uuid is reported only if you set `Shim.Uuid` in
+  `pcsvr-api.yaml`. The app identifies the device by its serial; see
+  `pcsvr-rs/README.md`.
 - **Crash on startup on some hardware** — Electron's VSync is unstable on a
   few GPUs; the launcher falls back to `--disable-gpu` automatically.
 - **X11-only today** — Wayland users: run under X11 (or XWayland) for now.

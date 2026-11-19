@@ -1,0 +1,22 @@
+[package]
+name = "pcsvr-rs"
+version = "1.0.0"
+edition = "2021"
+description = "Linux PC service shim for TiinyOS — Rust rewrite of the Python pcsvr (leak-free, no hardcoded device)"
+license = "AGPL-3.0-or-later"
+
+# Zero runtime dependencies, on purpose: std-only HTTP/1.1 + RFC 6455 + SHA-1
+# + base64. That keeps the build fully offline and the binary static-ish.
+# See README.md "Zero dependencies" for the trade-offs.
+
+[lib]
+name = "pcsvr_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pcsvr"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+lto = "thin"
