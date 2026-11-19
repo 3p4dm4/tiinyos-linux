@@ -4,7 +4,7 @@ Drop-in replacement for the Python `pcsvr` shim that TiinyOS starts on Linux
 (`resources/pcsvr/linux/pcsvr.py`). Same wire contract, no interpreter, and
 **bounded by design**: that Python shim leaks one thread per connection and
 one per websocket reconnect (~50/min under the app's reconnect pattern, 13k
-threads and an EMFILE death after ~1.5 days — `docs/vendor-thread-leak.md`),
+threads and an EMFILE death after ~1.5 days — `docs/pcsvr-thread-leak.md`),
 so every resource here has an explicit cap and every thread has an exit
 condition. The leak is in our compat shim, not in Tiiny's own code.
 
@@ -141,20 +141,24 @@ Tests bind `127.0.0.1` on an **ephemeral** port (port 0) against a fake device
 in-process: they never touch port 60000, a real Pocket, or `~/.config/TiinyOS`.
 Tests that read process-wide counters take a lock so they never overlap.
 
-## Replacing the Python shim
+## How it gets installed
 
-The app starts the shim from `<clone>/electron/resources/pcsvr/linux/` as
-`python3 ./pcsvr -f pcsvr-api.yaml`. To run the Rust build there instead:
+`install.sh` runs `tools/build_pcsvr.sh` (needs `cargo`) and puts the binary at
+`<clone>/electron/resources/pcsvr/linux/pcsvr`; if no `pcsvr-api.yaml` is there
+it copies the example. The app itself spawns `pcsvr -f <dir>/pcsvr-api.yaml`
+(cwd = that dir, detached) whenever nothing answers on port 60000 — no
+watchdog, no unit file. `install.sh` also disables and removes the old
+`pcsvr-watchdog` timer, which only existed to restart the leaking Python shim,
+and keeps that shim as `pcsvr.before-install` for `--uninstall`.
+
+Switching a running machine over:
 
 ```bash
-systemctl --user disable --now pcsvr-watchdog.timer   # it restarts the python shim
-# stop the running shim, then:
-cd <clone>/electron/resources/pcsvr/linux && ./pcsvr -f pcsvr-api.yaml
+./install.sh                                    # build + install, retires the watchdog
+pkill -xf 'python3 ./pcsvr -f pcsvr-api.yaml'   # stop the old shim
+# restart the app: it starts the new pcsvr; check with
 curl -s localhost:60000/status
 ```
-
-Until that swap is done, keep the watchdog enabled — it is what keeps the
-Python shim alive.
 
 ## Device fields: verified vs assumed
 
@@ -176,7 +180,7 @@ only file to touch is `src/device.rs` (`identity_from`).
 
 * No signal handler (std cannot install one without a libc dependency):
   SIGTERM/SIGINT use the default disposition, the process dies and the kernel
-  closes its sockets. That is what the app and the watchdog expect.
+  closes its sockets. That is what the app expects.
 * Only what the app actually calls is implemented; the Windows pcsvr's extra
   subsystems (WireGuard, DNS, SSH proxy, Web UI) are not reproduced and their
   config keys are ignored on purpose.

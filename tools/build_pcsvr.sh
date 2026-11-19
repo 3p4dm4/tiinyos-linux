@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # build_pcsvr.sh — build the Rust pcsvr (pcsvr-rs/) and stage a deployable dir.
 #
-# Why: on Linux there is no pcsvr.exe, so this repo's Python shim stands in —
-# and that shim leaks threads (docs/vendor-thread-leak.md). pcsvr-rs is a
+# Why: on Linux there is no pcsvr.exe; our old Python shim stood in —
+# and that shim leaks threads (docs/pcsvr-thread-leak.md). pcsvr-rs is a
 # drop-in replacement with no runtime deps; this script produces the artifact
 # and optionally installs it into a clone's pcsvr directory, where the app
 # would start it instead of `python3 ./pcsvr -f pcsvr-api.yaml`.
@@ -16,8 +16,8 @@
 #   tools/build_pcsvr.sh --no-strip          # keep symbols
 #
 # Nothing here touches a running service: --install only copies files into the
-# directory you name; restarting the app/shim is your call (and the watchdog
-# must be disabled first, or it will restart the Python shim).
+# directory you name; restarting the app/shim is your call. install.sh calls
+# this script and puts the binary where the app starts it.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -88,7 +88,7 @@ if [[ -n "$INSTALL_DIR" ]]; then
     install -m 0644 "$CDIR/pcsvr-api.yaml.example" "$INSTALL_DIR/pcsvr-api.yaml"
   }
   echo "  done. To actually run it instead of the Python shim:"
-  echo "    1. systemctl --user disable --now pcsvr-watchdog.timer   # else it restarts python3 ./pcsvr"
-  echo "    2. stop the running shim, then: cd $INSTALL_DIR && ./pcsvr -f pcsvr-api.yaml"
+  echo "    1. stop the running shim: pkill -xf 'python3 ./pcsvr -f pcsvr-api.yaml'"
+  echo "    2. restart the app: it starts $INSTALL_DIR/pcsvr by itself"
   echo "    3. curl -s localhost:60000/status"
 fi

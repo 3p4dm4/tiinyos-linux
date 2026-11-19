@@ -56,7 +56,7 @@ have rough edges on Linux — open an issue with the log from
 | **Control Panel** | The device's management pages (models, network, power) as a native window — no browser needed |
 | **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory) and a live activity indicator |
 | **Agent store** | Browse, install, and update AI agents straight from the Linux app |
-| **Watchdog** | Our Linux `pcsvr` shim (not Tiiny's code) leaks up to **~3,000 threads/h** (about 60/h while idle); a user systemd timer every 5 minutes keeps the count near zero until its leak-free replacement lands — see [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md) |
+| **Linux PC service** | `pcsvr`, the local service the app needs to see the device, which Tiiny ships only for Windows: ours is a small Rust binary (`pcsvr-rs/`) with a cap on every resource, built by `install.sh` — it replaced a Python shim that leaked threads, see [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md) |
 
 ## How it works
 
@@ -100,11 +100,12 @@ entries and the `/etc/hosts` shim line, and deletes the clone.
 
 ## Known issues
 
-- **Linux PC service (`pcsvr`) not shipped yet** — the app needs a local
-  service on port 60000 to list the device. Tiiny ships one only for Windows;
-  ours is not in the repo yet, so a fresh install may not see the device. A
-  self-contained replacement is in progress — see
-  [docs/pcsvr-thread-leak.md](docs/pcsvr-thread-leak.md).
+- **`install.sh` needs Rust (`cargo`)** to build the Linux PC service — get it
+  from [rustup.rs](https://rustup.rs). Without it everything else installs, but
+  the app may not see the device.
+- **Device identity from `device.json` not yet checked on a real device** — the
+  service reads serial and uuid from the device and falls back to the
+  `Shim.*` keys of `pcsvr-api.yaml`; see `pcsvr-rs/README.md`.
 - **Crash on startup on some hardware** — Electron's VSync is unstable on a
   few GPUs; the launcher falls back to `--disable-gpu` automatically.
 - **X11-only today** — Wayland users: run under X11 (or XWayland) for now.
