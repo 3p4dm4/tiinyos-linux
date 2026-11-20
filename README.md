@@ -159,6 +159,14 @@ watchdog, and writes to `~/.local/tiinyos-clone/logs/launch.log`. The
 desktop entry points at the same script, so icon and terminal behave
 identically.
 
+## Add your own tool
+
+TiinyOS on Linux is open to other tools: each one is a window that runs inside
+TiinyOS (tray menu) and on its own (`standalone/launch.sh <id>`), described by a
+manifest. Start from [CONTRIBUTING.md](CONTRIBUTING.md) and the example tool in
+[examples/hello/](examples/hello/README.md); the manifest format is in
+[docs/framework/MANIFEST.md](docs/framework/MANIFEST.md).
+
 ## For AI agents
 
 If you're an agent working in this repo: read the README first, then

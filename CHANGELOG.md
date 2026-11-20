@@ -10,6 +10,10 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 ## [Unreleased]
 
 ### Added
+- **Contributor docs**: `CONTRIBUTING.md` (add a tool end to end, module and IPC rules, shared
+  modules, testing against the fake device, UI rules, review checklist),
+  `docs/framework/MANIFEST.md` (manifest fields and who reads them) and
+  `docs/framework/RISKS.md` (what a second tool can break and the 0.4 guardrails).
 - **Connection check** (Device › Status › Connection, `src/m3_netcheck.js`): for each of the 14
   device names the app uses, where it resolves (`/etc/hosts` or DNS) and the HTTP answer of a
   plain `GET /` (no key sent), with one verdict and one remedy per name, and the exact
