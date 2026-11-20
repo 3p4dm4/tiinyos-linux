@@ -52,7 +52,8 @@ have rough edges on Linux — open an issue with the log from
 
 | Feature | What it does |
 |---|---|
-| **Performance window** | A live view of the device: RAM, storage, NPU state, model store, process footprint |
+| **Device window** | Tray › Device, or *Tiiny Device* on its own: live status, models in memory and on the device with safe **updates**, token **usage** per day/model/app, **power** settings, and a connection check for the `/etc/hosts` names |
+| **Device care** | After a power cut the Pocket comes back with nothing in memory: the engine reloads the models you chose, one at a time, never unloading anything to make room; updates resume where they stopped |
 | **Control Panel** | The device's management pages (models, network, power) as a native window — no browser needed |
 | **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory); on Linux only the ball itself takes clicks, the transparent area around it lets them through |
 | **Activity indicator** | Shows whether the Pocket is working — downloading, loading a model, generating, idle — on the Floating Ball and in the tray tooltip; [details below](#activity-indicator) |

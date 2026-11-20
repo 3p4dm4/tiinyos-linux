@@ -9,92 +9,60 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-20
+
+Device care: the Performance window becomes the **Device** window, with an engine that keeps the
+Pocket's models in memory across power cuts and updates them safely. First version of the tool
+framework: every tool also runs standalone, and other people can add tools.
+
 ### Added
-- **Contributor docs**: `CONTRIBUTING.md` (add a tool end to end, module and IPC rules, shared
-  modules, testing against the fake device, UI rules, review checklist),
-  `docs/framework/MANIFEST.md` (manifest fields and who reads them) and
-  `docs/framework/RISKS.md` (what a second tool can break and the 0.4 guardrails).
-- **Connection check** (Device › Status › Connection, `src/m3_netcheck.js`): for each of the 14
-  device names the app uses, where it resolves (`/etc/hosts` or DNS) and the HTTP answer of a
-  plain `GET /` (no key sent), with one verdict and one remedy per name, and the exact
-  `/etc/hosts` line for the names that are missing or point elsewhere, with a Copy button.
-- **Example tool `hello`** (`examples/hello/`): a schema-valid manifest, a module with
-  `open`/`wire(ipc)`/`attach` and lazy Electron, one IPC prefix (`m3:hello:*`), a page on the shared
-  tokens and a node test against the fake device. Not installed, not in the tray, not in
-  `standalone/tools.json` — it is the copy-me reference for a new tool (see its README).
-- **Tool manifests** (`src/<id>.tool.json`, schema `docs/framework/tool.schema.json`): each tool
-  declares its files, IPC prefix, standalone window, tray hook, device endpoints and PC state;
-  `tests/test_manifests.py` checks it against the schema, `install.sh`, `tools/patch_main.py`,
-  the standalone registry and the IPC handlers in the code. First manifest: `device`.
-  `standalone/tools.json` is now only the list of enabled tools (`{"tools": ["device"]}`); the
-  launcher and host read title and module from the manifest.
-- **Standalone launcher for every tool** (`standalone/`): `standalone/launch.sh <tool>`
-  (plus `--list`) runs a TiinyOS tool as its own app without the TiinyOS app, from the same
-  source — today **Device**. It builds a symlink farm around the clone's Electron and passes the
-  tool via env; each tool is single-instance (its own name + userData before the lock). The
-  Device window (`src/m3_performance.js`) now resolves its renderer html in both the bundle and
-  the repo.
-- **Cross-process engine lock** (`src/m3_lock.js`, pure Node): `acquire`/`release`/`holder` with a
-  pid-ownership and staleness model, so the care engine runs in exactly one process; tested in
-  `tests/js/m3_lock.test.js`.
-- The care engine takes that lock (`engine.lock` next to its state files): when the TiinyOS app and
-  the standalone Device window both run, only the lock holder restores models, runs updates and
-  writes the log; the other window shows the same state, refuses updates with a message naming
-  the holder, and takes over when the holder quits (`tests/js/care_lock.test.js`).
-- **"Tiiny Device" desktop entry** (`install.sh`), pointing at the standalone launcher; removed on
-  `--uninstall`.
-- **Device care engine** (`src/m3_care.js`, `src/m3_care_store.js`, `src/m3_models.js`):
-  the background engine behind the Device window. A 5 s poller tracks device reach;
-  a power cut is recorded with what was in memory when the link dropped and what came
-  back, then the kept models are reloaded per policy (`off` / `kept` / `all`) once the
-  device is up again — the device boots with nothing in memory, so without this the
-  models silently disappear. Updates are journal-driven (`unload → delete → download →
-  reload`, journal written before each step) so they resume after a power cut or an
-  app restart, one model at a time (`updateAll` queues); `ac_power` gates the eager
-  behaviour; per-model and app usage and a 7-day activity log are exposed. State
-  (`care.json`, `care-journal.json`, `care-log.jsonl`) lives under
-  `~/.config/tiinyos-linux/` with atomic writes.
-- The full `m3:device:*` IPC contract of `docs/design/device-contract.md` v0.4.0 on the
-  Device window, plus one `m3:device:changed` push (at most one per second) carrying the
-  CareState.
-- The engine starts with the activity indicator — the one injection point every
-  installed bundle has — so upgrading an existing install gets it without reopening
-  the Device window; while a care task runs, the tray tooltip and the ball dot follow
-  the task ("restoring…", "updating General 7B · step 3/4") instead of the raw signals.
-- End-to-end test (`tests/e2e/run_e2e.sh`): fresh clone from the CDN → `install.sh` →
-  the *shipped* asar runs inside a real Electron against the fake pocket and every
-  flow is driven through the real preload bridge — reach, load/unload, policy/keep,
-  restore after a power cut, an update that bumps the device version, a power cut
-  mid-download that resumes from the journal, `updateAll`, fit refusal (the device's
-  own "insufficient NPU" reaches the renderer), `ac_power`, usage, the log and the
-  state files on disk — then `--uninstall` restores the pristine asar byte-identically.
-- Fake-pocket control driver (`tests/fake_pocket_ctl.py`): cut and restore the device
-  power and switch scenarios mid-test, so outage and resume paths are testable.
-- Fake Tiiny Pocket for tests (`tests/fake_pocket.py`, stdlib only): a scriptable
-  device on loopback with scenarios (normal, slow_load, npu_full, power_cut,
-  update_available) and simulated time; `src/m3_device.js` base URL is now
-  overridable with env `TIINY_BASE` so the JS client can be tested against it
-  (Python + Node test suites).
-- Device window design and engine/UI contract (`docs/design/`) for 0.4.0 Device care.
+- **Device window** (tray › Device, or the "Tiiny Device" desktop entry): four tabs.
+  - *Status*: live CPU/RAM/NPU/disk, what is in memory and answering right now, running tasks,
+    the activity log (7 days, kept on this PC), benchmark runs, and the **Connection check** —
+    for each of the 14 device names the app uses, where it resolves and whether it answers, with
+    the exact `/etc/hosts` line to add for the names that are missing (no key is sent).
+  - *Models*: in memory and installed on the device, release dates, **Update** and **Update all**
+    with a confirmation that lists the steps (unload, delete, download, reload).
+  - *Usage*: tokens per day and per model for any week, stacked chart with a table twin, totals
+    per app ("API clients" = requests without the app's `X-App-Id`, such as agents).
+  - *Power*: the device's power-on-after-a-cut setting, which models to reload after an outage
+    (nothing / the ones marked Keep loaded / everything that was in memory), restore progress
+    and the outages seen from this PC.
+  - A strip on every tab: device reach, the request in flight and the running task.
+- **Device care engine** (`src/m3_care.js`, `m3_care_store.js`, `m3_models.js`): polls every 5 s;
+  an outage (no answer for more than 15 s, then an answer) is recorded with what was in memory
+  before and what came back by itself, then the missing models are reloaded one at a time per
+  policy — a model that no longer fits is reported, nothing is ever unloaded to make room.
+  Updates are journaled before each step and resume after a power cut or an app restart. State
+  lives in `~/.config/tiinyos-linux/` (atomic writes). While a restore or update runs, the tray
+  tooltip and the Floating Ball dot show it.
+- **Standalone tools**: `standalone/launch.sh <tool>` (and `--list`) runs a tool without the
+  TiinyOS app, from the same source, reusing the clone's Electron; one instance per tool. The
+  engine takes `~/.config/tiinyos-linux/engine.lock`, so when the app and the standalone window
+  both run, only one of them restores and updates.
+- **Tool framework**: a manifest per tool (`src/<id>.tool.json`, schema in `docs/framework/`)
+  checked by `tests/test_manifests.py` against the schema, `install.sh`, the tray patch, the
+  standalone registry and the IPC handlers; `CONTRIBUTING.md`, `docs/framework/MANIFEST.md`,
+  `docs/framework/RISKS.md`; the example tool `examples/hello/` (not installed).
+- **Tests without a device**: a fake Tiiny Pocket (`tests/fake_pocket.py`, scenarios for slow
+  loads, a full NPU, power cuts and updates; `TIINY_BASE` points the client at it), a control
+  driver for power cuts mid-test, node suites for engine, UI helpers and window, and an
+  end-to-end run (`tests/e2e/run_e2e.sh`): fresh clone → `install.sh` → the shipped bundle in a
+  real Electron against the fake → `--uninstall` restores the pristine bundle byte for byte.
 - `VERSION` file and this changelog; `install.sh` and `update.sh` print the version
   (`update.sh` shows `old → new`). Releases are tagged `vX.Y.Z` on GitHub.
 
 ### Changed
-- Tray menu item "Performance" is now "Device", and the Performance window is now the Device
-  window: four tabs (Status, Models, Usage, Power), a persistent strip with device reach, the
-  running request and the running task, light and dark themes; every care view shows "not
-  available" when the engine cannot answer. Benchmark stays in Status and Models.
-- `install.sh --uninstall` keeps your settings in `~/.config/tiinyos-linux`; the new `--purge` also
-  removes them (restore policy, kept models, activity log, update journal, standalone profiles).
-- `install.sh` now ships the care-engine modules next to the window files, and
-  `src/m3_device.js` gained a JSON `DELETE` verb (the update flow needs it).
+- Tray item "Performance" is now "Device"; the benchmark stays (Status and Models).
+- `install.sh --uninstall` keeps your settings in `~/.config/tiinyos-linux`; the new `--purge`
+  also removes them.
+- `install.sh` ships the engine, lock and connection-check modules and checks all of them, the
+  benchmark included, in the repacked bundle.
 
 ### Fixed
-- README and `build_clone.sh` asked for `api.tiiny models.api.tiiny` only; the app uses 14 names
-  (`docs/network.md`), and the README described a `:8080` rewrite that does not exist.
-- `install.sh` now also checks that `m3_bench.js` (the benchmark) made it into the repacked bundle.
-- The preload bridge passed `invoke` on any IPC channel; it now allows only `m3:*`, both ways,
-  and adds the `on` event subscription the Device window needs.
+- The preload bridge passed `invoke` on any IPC channel; it now allows only `m3:*`, both ways.
+- README and `build_clone.sh` asked for two device names in `/etc/hosts`; the app uses 14
+  (`docs/network.md`). The README also described a `:8080` rewrite that does not exist.
 
 ## [0.3.0] — 2026-11-19
 
@@ -143,7 +111,8 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 - Floating Ball dead on Linux (click-through, blur-hide), kept out of the taskbar; dock icon;
   the Control Panel no longer opens the browser (#1).
 
-[Unreleased]: https://github.com/3p4dm4/tiinyos-linux/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/3p4dm4/tiinyos-linux/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/3p4dm4/tiinyos-linux/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/3p4dm4/tiinyos-linux/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/3p4dm4/tiinyos-linux/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/3p4dm4/tiinyos-linux/releases/tag/v0.1.0

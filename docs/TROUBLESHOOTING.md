@@ -46,7 +46,7 @@ Upstream warnings, non-fatal. Ignore.
 The bundle currently requires `--no-sandbox` on Linux; `run.sh` already
 passes it. If you launch `electron/tiinyos` yourself, include it.
 
-## Feature windows missing (no Performance / Control Panel in tray)
+## Feature windows missing (no Device / Control Panel in tray)
 
 The feature pack is not applied to the clone you are running — you are
 pointing at the pristine bundle or another clone. Rerun `./install.sh
@@ -54,7 +54,7 @@ pointing at the pristine bundle or another clone. Rerun `./install.sh
 
 ## Windows show up in the dock / Activities but never on screen (GNOME, Wayland)
 
-Performance, Control Panel — in fact any X11 window with a native title bar
+Device, Control Panel — in fact any X11 window with a native title bar
 opened after a certain moment — get a dock entry but stay empty. Cause
 (observed 2026-11-17, GNOME 46): `mutter-x11-frames`, the GNOME helper that
 draws title bars for X11 windows, crashed (`journalctl --user -b | grep
