@@ -1,0 +1,56 @@
+{
+  "manifest": 1,
+  "id": "hello",
+  "title": "Hello Pocket",
+  "version": "0.1.0",
+  "description": "Example tool: shows the device address, the models in memory and the NPU status on demand. Reference for new tools, not installed.",
+  "minFramework": "0.4.0",
+  "main": {
+    "module": "m3_hello.js",
+    "files": [
+      "m3_hello.js"
+    ]
+  },
+  "renderer": {
+    "page": "hello.html",
+    "files": [
+      "hello.html",
+      "hello.css"
+    ],
+    "dirs": [
+      "m3hello"
+    ]
+  },
+  "ipc": {
+    "prefix": "m3:hello"
+  },
+  "standalone": {
+    "enabled": false,
+    "singleInstance": true,
+    "window": {
+      "width": 640,
+      "height": 480,
+      "minWidth": 480,
+      "minHeight": 360
+    },
+    "backgroundColor": {
+      "dark": "#0f1115",
+      "light": "#f5f6f8"
+    }
+  },
+  "device": {
+    "endpoints": [
+      "GET /v1/models",
+      "GET /api/v1/sys/status",
+      "GET /api/v1/npu/status"
+    ],
+    "models": {
+      "loads": false,
+      "unloads": false,
+      "evicts": false
+    }
+  },
+  "background": {
+    "poller": null
+  }
+}
