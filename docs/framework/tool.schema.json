@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/3p4dm4/tiinyos-linux/tool.schema.json",
+  "title": "TiinyOS on Linux - tool manifest v1 (framework 0.4)",
+  "description": "One file per tool at src/<id>.tool.json. Read by standalone/launch.sh + standalone/main.js and by tests/test_manifests.py; not copied into the bundle.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest", "id", "title", "version", "description", "minFramework", "main", "renderer", "ipc", "standalone", "device", "background"],
+  "properties": {
+    "manifest": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,23}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "version": { "$ref": "#/$defs/semver" },
+    "description": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "minFramework": { "$ref": "#/$defs/semver" },
+
+    "main": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "files"],
+      "properties": {
+        "module": { "type": "string", "pattern": "^m3_[a-z0-9_]+\\.js$" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^m3[a-z0-9_]*\\.js$" }
+        }
+      }
+    },
+
+    "renderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "files"],
+      "properties": {
+        "page": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.html$" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.(html|css|png|svg)$" }
+        },
+        "dirs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^m3[a-z0-9]+$" }
+        }
+      }
+    },
+
+    "ipc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prefix"],
+      "properties": {
+        "prefix": { "type": "string", "pattern": "^m3:[a-z][a-z0-9-]*$" },
+        "legacy": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/channel" } },
+        "events": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/channel" } }
+      }
+    },
+
+    "standalone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "singleInstance": { "type": "boolean", "default": true },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 320 },
+            "height": { "type": "integer", "minimum": 240 },
+            "minWidth": { "type": "integer", "minimum": 320 },
+            "minHeight": { "type": "integer", "minimum": 240 }
+          }
+        },
+        "icon": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.(png|svg)$" },
+        "backgroundColor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dark", "light"],
+          "properties": {
+            "dark": { "$ref": "#/$defs/hex" },
+            "light": { "$ref": "#/$defs/hex" }
+          }
+        }
+      },
+      "if": { "properties": { "enabled": { "const": true } } },
+      "then": { "required": ["enabled", "window"] }
+    },
+
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tray": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "order"],
+          "properties": {
+            "label": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "order": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "activity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contributes"],
+          "properties": {
+            "contributes": { "type": "boolean" },
+            "export": { "type": "string", "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$" }
+          }
+        }
+      }
+    },
+
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoints", "models"],
+      "properties": {
+        "endpoints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(GET|POST|DELETE) /[^ ]+$" }
+        },
+        "models": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["loads", "unloads"],
+          "properties": {
+            "loads": { "type": "boolean" },
+            "unloads": { "type": "boolean" },
+            "evicts": { "const": false, "description": "v0.4 rule: never evict another model silently (fitPlan first, then ask)." },
+            "types": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+
+    "background": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["poller"],
+      "properties": {
+        "poller": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["everyMs"],
+              "properties": {
+                "everyMs": { "type": "integer", "minimum": 1000 },
+                "endpoints": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(GET|POST|DELETE) /[^ ]+$" } }
+              }
+            }
+          ]
+        },
+        "locks": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dir", "files"],
+          "properties": {
+            "dir": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "folder under ~/.config/" },
+            "files": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "channel": { "type": "string", "pattern": "^m3:[a-z][a-zA-Z0-9:-]*$" },
+    "hex": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+  }
+}

@@ -53,21 +53,27 @@ directory (not argv): `main.js` sets `tiiny-<tool>` as the app name and
 `~/.config/tiinyos-linux/standalone-<tool>` as userData *before* the call,
 which is what lets Device and Music Lab standalone coexist while each stays
 single. (The real Electron behaviour of this is not exercised in this repo's
-tests — it needs a running Electron; see the handoff report.)
+tests — it needs a running Electron, and it is not verified yet.)
 
 ## How a tool registers
 
-1. Add an entry to [`tools.json`](tools.json):
-   `{ "<tool>": { "module": "<file in ../src>", "title": "<display name>" } }`.
-   The module must export `open()` (or an equivalent) that creates its window.
-2. That module must work outside the app: its own window, preload and renderer
+1. The tool has a manifest `src/<tool>.tool.json` (format:
+   [`../docs/framework/MANIFEST.md`](../docs/framework/MANIFEST.md)) with
+   `standalone.enabled: true`; the host reads `title` and `main.module` from it.
+   The module must export `open()` that creates its window.
+2. Add the tool id to [`tools.json`](tools.json): `{ "tools": ["device", "<tool>"] }`.
+   A tool with a manifest but not listed here is work in progress and does not
+   appear in the launcher.
+3. That module must work outside the app: its own window, preload and renderer
    paths resolved from its location (the Device module resolves its html to
    either the bundle or the repo — see `src/m3_performance.js`).
-3. Nothing else changes: the launcher, host, per-tool lock and (for the Device
-   entry) the desktop icon are all generic.
+4. Nothing else changes: the launcher, host, per-tool lock and (for the Device
+   entry) the desktop icon are all generic. `tests/test_manifests.py` checks the
+   manifest against the schema, the registry and the repo.
 
-The engine that talks to the device is shared and single-process (see
-[`../src/m3_lock.js`](../src/m3_lock.js)); the integrator wires it in.
+The engine that talks to the device runs in one process at a time: it takes
+`~/.config/tiinyos-linux/engine.lock` ([`../src/m3_lock.js`](../src/m3_lock.js)),
+so the TiinyOS app and the standalone Device window can run together.
 
 ## Requirements
 

@@ -117,7 +117,7 @@ import json, sys
 d = open(sys.argv[1], "rb").read()
 n = int.from_bytes(d[12:16], "little")
 h = json.dumps(json.loads(d[16:16 + n]))
-for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_activity.js", "m3_ballshape.js", "m3_models.js", "m3_care_store.js", "m3_care.js", "m3_lock.js"):
+for f in ("performance.html", "m3_performance.js", "m3_bench.js", "m3_cp.js", "m3_activity.js", "m3_ballshape.js", "m3_models.js", "m3_care_store.js", "m3_care.js", "m3_lock.js"):
     assert f in h, f"{f} missing from header"
 assert "integrity" in h, "no integrity block"
 print("[tiinyos-linux] verify: header OK")

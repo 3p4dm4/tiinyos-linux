@@ -24,13 +24,16 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const os = require('os');
 
-const TOOLS = require(path.join(__dirname, 'tools.json'));
+// tools.json lists the enabled tool ids; everything else about a tool comes
+// from its manifest src/<id>.tool.json (docs/framework/MANIFEST.md).
+const { tools: TOOLS } = require(path.join(__dirname, 'tools.json'));
+const manifest = id => require(path.join(__dirname, '..', 'src', id + '.tool.json'));
 
 // The tool comes from the environment (launch.sh exports TIINY_TOOL). Failing
 // here early with a readable message is better than Electron starting blank.
 const tool = process.env.TIINY_TOOL || '';
-if (!tool || !TOOLS[tool]) {
-  console.error(`[tiiny-tools] TIINY_TOOL is '${tool}' — not a registered tool (${Object.keys(TOOLS).join(', ')}). Re-run launch.sh <tool>.`);
+if (!tool || !TOOLS.includes(tool)) {
+  console.error(`[tiiny-tools] TIINY_TOOL is '${tool}' — not a registered tool (${TOOLS.join(', ')}). Re-run launch.sh <tool>.`);
   app.exit(1);
 }
 
@@ -54,8 +57,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     // The tool's module knows its own window title/icon; we just require it
     // straight from src/ and let it open. Its IPC handlers register on load.
-    const { module: rel } = TOOLS[tool];
-    const mod = require(path.join(__dirname, '..', 'src', rel));
+    const mod = require(path.join(__dirname, '..', 'src', manifest(tool).main.module));
     mod.open();
   });
   app.on('window-all-closed', () => app.quit());

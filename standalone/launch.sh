@@ -22,13 +22,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 TOOLS_JSON="$HERE/tools.json"
-# available tool names (keys of tools.json); python3 is a hard dep of this repo
-TOOLS="$(python3 -c 'import json,sys; print(" ".join(sorted(json.load(open(sys.argv[1])))))' "$TOOLS_JSON" 2>/dev/null || true)"
+# enabled tool ids (tools.json); titles come from src/<id>.tool.json. python3 is a hard dep of this repo
+TOOLS="$(python3 -c 'import json,sys; print(" ".join(sorted(json.load(open(sys.argv[1]))["tools"])))' "$TOOLS_JSON" 2>/dev/null || true)"
 
 list_tools() {
   printf 'Available tools:\n'
   for t in $TOOLS; do
-    title="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]].get("title",""))' "$TOOLS_JSON" "$t" 2>/dev/null || true)"
+    title="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("title",""))' "$HERE/../src/$t.tool.json" 2>/dev/null || true)"
     printf '  %-10s %s\n' "$t" "$title"
   done
   echo

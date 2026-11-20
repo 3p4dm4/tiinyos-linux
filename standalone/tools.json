@@ -1,6 +1,5 @@
 {
-  "device": {
-    "module": "m3_performance.js",
-    "title": "Device"
-  }
+  "tools": [
+    "device"
+  ]
 }

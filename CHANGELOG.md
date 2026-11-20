@@ -10,6 +10,12 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 ## [Unreleased]
 
 ### Added
+- **Tool manifests** (`src/<id>.tool.json`, schema `docs/framework/tool.schema.json`): each tool
+  declares its files, IPC prefix, standalone window, tray hook, device endpoints and PC state;
+  `tests/test_manifests.py` checks it against the schema, `install.sh`, `tools/patch_main.py`,
+  the standalone registry and the IPC handlers in the code. First manifest: `device`.
+  `standalone/tools.json` is now only the list of enabled tools (`{"tools": ["device"]}`); the
+  launcher and host read title and module from the manifest.
 - **Standalone launcher for every tool** (`standalone/`): `standalone/launch.sh <tool>`
   (plus `--list`) runs a TiinyOS tool as its own app without the TiinyOS app, from the same
   source — today **Device**. It builds a symlink farm around the clone's Electron and passes the
@@ -72,6 +78,7 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   `src/m3_device.js` gained a JSON `DELETE` verb (the update flow needs it).
 
 ### Fixed
+- `install.sh` now also checks that `m3_bench.js` (the benchmark) made it into the repacked bundle.
 - The preload bridge passed `invoke` on any IPC channel; it now allows only `m3:*`, both ways,
   and adds the `on` event subscription the Device window needs.
 
