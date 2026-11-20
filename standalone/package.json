@@ -1,0 +1,6 @@
+{
+  "name": "tiiny-tools-standalone",
+  "version": "0.4.0",
+  "description": "Standalone host for TiinyOS tools on Linux — runs one tool (see tools.json) without the full TiinyOS app, reusing ../src",
+  "main": "main.js"
+}

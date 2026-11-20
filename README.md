@@ -22,9 +22,9 @@ Use your Tiiny Pocket from Linux — the official TiinyOS app, patched to run on
 # 1. Download the official bundle + Electron (one time, ~1 GB)
 ~/.local/tiinyos-clone/build_clone.sh
 
-# 2. Point api.tiiny at your device — build_clone.sh prints the line for you
-#    (login fails without it; see docs/network.md)
-echo "<device-ip>  api.tiiny  models.api.tiiny" | sudo tee -a /etc/hosts
+# 2. Point the device names at your Pocket: copy the /etc/hosts lines from
+#    docs/network.md, with your device IP (login fails without them). Later,
+#    Device › Status › Check connection tells you if any name is missing.
 
 # 3. Fetch the community Control Panel (optional)
 ./fetch_control_panel.sh
@@ -52,7 +52,8 @@ have rough edges on Linux — open an issue with the log from
 
 | Feature | What it does |
 |---|---|
-| **Performance window** | A live view of the device: RAM, storage, NPU state, model store, process footprint |
+| **Device window** | Tray › Device, or *Tiiny Device* on its own: live status, models in memory and on the device with safe **updates**, token **usage** per day/model/app, **power** settings, and a connection check for the `/etc/hosts` names |
+| **Device care** | After a power cut the Pocket comes back with nothing in memory: the engine reloads the models you chose, one at a time, never unloading anything to make room; updates resume where they stopped |
 | **Control Panel** | The device's management pages (models, network, power) as a native window — no browser needed |
 | **Floating Ball** | A draggable overlay with device status (RAM / NPU / models in memory); on Linux only the ball itself takes clicks, the transparent area around it lets them through |
 | **Activity indicator** | Shows whether the Pocket is working — downloading, loading a model, generating, idle — on the Floating Ball and in the tray tooltip; [details below](#activity-indicator) |
@@ -119,10 +120,11 @@ hand: `git pull && ./install.sh`.
 
 ## Network
 
-The official client hard-codes `https://api.tiiny` / `models.api.tiiny`.
-The port rewrites both to `http://api.tiiny:8080/v1` (see
-[docs/network.md](docs/network.md) for the full picture, including the
-`/etc/hosts` line and what happens if the device is on a different subnet).
+The official client reaches the Pocket only through 14 fixed names
+(`api.tiiny`, `p8800.api.tiiny`, `openai.api.tiiny`, … and `backup.managed.tiiny`). On Linux
+they come from `/etc/hosts`: [docs/network.md](docs/network.md) has the lines. In the Device
+window, **Status › Connection › Check connection** shows for each name where it resolves and
+whether it answers, and gives the exact line to add for the names that are missing.
 
 ## Uninstall
 
@@ -157,6 +159,14 @@ lists what we measured and the workaround for each case.
 watchdog, and writes to `~/.local/tiinyos-clone/logs/launch.log`. The
 desktop entry points at the same script, so icon and terminal behave
 identically.
+
+## Add your own tool
+
+TiinyOS on Linux is open to other tools: each one is a window that runs inside
+TiinyOS (tray menu) and on its own (`standalone/launch.sh <id>`), described by a
+manifest. Start from [CONTRIBUTING.md](CONTRIBUTING.md) and the example tool in
+[examples/hello/](examples/hello/README.md); the manifest format is in
+[docs/framework/MANIFEST.md](docs/framework/MANIFEST.md).
 
 ## For AI agents
 

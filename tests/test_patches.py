@@ -74,6 +74,14 @@ class TestPatchMain(PatchToolCase):
     tool = "patch_main.py"
     anchor = ',{type:"separator"},{label:t.quit,click:()=>this.quit()}].filter(Boolean)'
 
+    def test_tray_item_is_labelled_device(self):
+        path = self._fixture("x=1;" + self.anchor + "y=2;")
+        r = run_tool(self.tool, path)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        out = open(path).read()
+        self.assertIn('{label:"Device",click:()=>{try{require("./m3_performance").open()}', out)
+        self.assertNotIn('label:"Performance"', out)
+
     def test_applies_once_then_idempotent(self):
         path = self._fixture("x=1;" + self.anchor + "y=2;")
         r1 = run_tool(self.tool, path)

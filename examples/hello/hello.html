@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' data:; connect-src 'none'">
+<title>Hello Pocket</title>
+<link rel="stylesheet" href="hello.css">
+</head>
+<body>
+<header>
+  <h1>Hello Pocket</h1>
+  <span class="muted mono" id="base">—</span>
+  <span class="spacer"></span>
+  <span class="muted" id="read">last read —</span>
+</header>
+
+<main>
+  <section class="card" aria-labelledby="mem-h">
+    <div class="sec-head"><h2 id="mem-h">In memory</h2></div>
+    <table>
+      <thead><tr><th scope="col">Model</th><th scope="col">Id</th></tr></thead>
+      <tbody id="mem"><tr><td colspan="2" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card" aria-labelledby="npu-h">
+    <div class="sec-head">
+      <h2 id="npu-h">NPU</h2>
+      <span class="spacer"></span>
+      <button type="button" id="npu-btn">Read NPU status</button>
+    </div>
+    <p id="npu" class="muted" aria-live="polite">Not read yet.</p>
+  </section>
+</main>
+
+<script src="m3hello/main.js"></script>
+</body>
+</html>

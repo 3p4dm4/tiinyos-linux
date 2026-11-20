@@ -10,6 +10,9 @@
 # Usage:
 #   ./install.sh [--clone-dir DIR] [--dry-run]
 #   ./install.sh --uninstall [--clone-dir DIR]
+#   ./install.sh --purge [--clone-dir DIR]   # --uninstall + delete our settings and logs
+#                                            # (~/.config/tiinyos-linux: restore policy, kept models,
+#                                            #  activity log, update journal, standalone profiles)
 #
 # The pristine bundle is never touched: the first run saves app.asar.orig and
 # every apply regenerates app.asar from it. Rollback is --uninstall (or
@@ -18,13 +21,14 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLONE="${TIINYOS_CLONE_DIR:-$HOME/.local/tiinyos-clone}"
-DRY=0; ACTION=install
+DRY=0; ACTION=install; PURGE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --clone-dir) CLONE="$2"; shift 2 ;;
     --dry-run)   DRY=1; shift ;;
     --uninstall) ACTION=uninstall; shift ;;
-    -h|--help)   sed -n '2,15p' "$0"; exit 0 ;;
+    --purge)     ACTION=uninstall; PURGE=1; shift ;;
+    -h|--help)   sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -40,11 +44,21 @@ if [[ $ACTION == uninstall ]]; then
   [[ -f "$RES/app.asar.orig" ]] || { say "nothing to uninstall (no app.asar.orig)"; exit 0; }
   run cp "$RES/app.asar.orig" "$RES/app.asar"
   run rm -f "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  # standalone Device entry: added in both the applications dir and the Desktop,
+  # so --uninstall removes both (existing entries' behaviour left as before)
+  run rm -f "$HOME/Desktop/Tiiny Device.desktop" "$HOME/.local/share/applications/tiiny-device.desktop"
   run rm -f "$CLONE/launch.sh"
   # the Linux PC service is not part of the pristine bundle: put back what was there before
   PCS="$RES/pcsvr/linux"
   if [[ -f "$PCS/pcsvr.before-install" ]]; then run mv -f "$PCS/pcsvr.before-install" "$PCS/pcsvr"
   elif [[ -f "$PCS/pcsvr" && $(head -c2 "$PCS/pcsvr") != '#!' ]]; then run rm -f "$PCS/pcsvr"; fi  # only ours (binary)
+  if [[ $PURGE == 1 ]]; then
+    # our own state only: the clone, the device and your generated files are untouched
+    run rm -rf "$HOME/.config/tiinyos-linux"
+    say "purged: ~/.config/tiinyos-linux removed"
+  else
+    say "kept your settings in ~/.config/tiinyos-linux (remove them with --purge)"
+  fi
   say "uninstalled: pristine app.asar restored. Restart the app."
   exit 0
 fi
@@ -76,7 +90,8 @@ run sh -c "$ASAR_BIN extract '$TMP/app.asar' '$UNP'"
 
 # 3. feature files
 run cp "$HERE"/src/m3_performance.js "$HERE"/src/m3_device.js "$HERE"/src/m3_bench.js \
-       "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$HERE"/src/m3_activity.js "$HERE"/src/m3_ballshape.js "$UNP/out/main/"
+       "$HERE"/src/m3_preload.js "$HERE"/src/m3_cp.js "$HERE"/src/m3_activity.js "$HERE"/src/m3_ballshape.js \
+       "$HERE"/src/m3_models.js "$HERE"/src/m3_care_store.js "$HERE"/src/m3_care.js "$HERE"/src/m3_lock.js "$HERE"/src/m3_netcheck.js "$UNP/out/main/"
 run cp "$HERE"/src/performance.html "$HERE"/src/performance.css "$UNP/out/renderer/"
 run rm -rf "$UNP/out/renderer/m3perf"
 run cp -r "$HERE/src/m3perf" "$UNP/out/renderer/m3perf"
@@ -102,7 +117,7 @@ import json, sys
 d = open(sys.argv[1], "rb").read()
 n = int.from_bytes(d[12:16], "little")
 h = json.dumps(json.loads(d[16:16 + n]))
-for f in ("performance.html", "m3_performance.js", "m3_cp.js", "m3_activity.js", "m3_ballshape.js"):
+for f in ("performance.html", "m3_performance.js", "m3_bench.js", "m3_cp.js", "m3_activity.js", "m3_ballshape.js", "m3_models.js", "m3_care_store.js", "m3_care.js", "m3_lock.js", "m3_netcheck.js"):
     assert f in h, f"{f} missing from header"
 assert "integrity" in h, "no integrity block"
 print("[tiinyos-linux] verify: header OK")
@@ -137,9 +152,27 @@ Path=$HOME/.local/share/tiinyos-linux/control-panel
 Terminal=false
 Categories=Utility;
 EOF
+  # Standalone Device window (runs without the TiinyOS app, same source).
+  # Icon: src/ ships no icon asset, so we reuse the app logo the TiinyOS entry
+  # already points at (present in the clone after install).
+  cat > "$HOME/.local/share/applications/tiiny-device.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Tiiny Device
+Comment=Device window (standalone, without the TiinyOS app)
+Exec=$HERE/standalone/launch.sh device
+Path=$HERE/standalone
+Icon=$CLONE/electron/resources/app-unpacked/out/main/tiiny-logo.png
+StartupWMClass=tiiny-device
+StartupNotify=false
+Terminal=false
+Categories=Utility;
+EOF
   cp "$HOME/.local/share/applications/tiinyos.desktop" "$HOME/Desktop/TiinyOS.desktop"
   cp "$HOME/.local/share/applications/tiiny-control-panel.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
-  chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop"
+  cp "$HOME/.local/share/applications/tiiny-device.desktop" "$HOME/Desktop/Tiiny Device.desktop"
+  chmod +x "$HOME/Desktop/TiinyOS.desktop" "$HOME/Desktop/Tiiny Control Panel.desktop" "$HOME/Desktop/Tiiny Device.desktop"
 fi
 
 # 7b. launcher + Linux PC service (pcsvr-rs, built from this repo)

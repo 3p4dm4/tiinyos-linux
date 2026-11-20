@@ -1,0 +1,113 @@
+{
+  "manifest": 1,
+  "id": "device",
+  "title": "Device",
+  "version": "0.4.0",
+  "description": "Live view and care of the Tiiny Pocket: status, models, weekly usage, power; reloads missing models after an outage and journals model updates.",
+  "minFramework": "0.4.0",
+  "main": {
+    "module": "m3_performance.js",
+    "files": [
+      "m3_performance.js",
+      "m3_bench.js",
+      "m3_care.js",
+      "m3_care_store.js",
+      "m3_netcheck.js"
+    ]
+  },
+  "renderer": {
+    "page": "performance.html",
+    "files": [
+      "performance.html",
+      "performance.css"
+    ],
+    "dirs": [
+      "m3perf"
+    ]
+  },
+  "ipc": {
+    "prefix": "m3:device",
+    "legacy": [
+      "m3:models",
+      "m3:sysstatus",
+      "m3:npustatus",
+      "m3:store",
+      "m3:benchmark"
+    ],
+    "events": [
+      "m3:device:changed"
+    ]
+  },
+  "standalone": {
+    "enabled": true,
+    "singleInstance": true,
+    "window": {
+      "width": 1100,
+      "height": 760,
+      "minWidth": 800,
+      "minHeight": 500
+    },
+    "backgroundColor": {
+      "dark": "#0f1115",
+      "light": "#f5f6f8"
+    }
+  },
+  "hooks": {
+    "tray": {
+      "label": "Device",
+      "order": 10
+    },
+    "activity": {
+      "contributes": true,
+      "export": "currentTask"
+    }
+  },
+  "device": {
+    "endpoints": [
+      "GET /v1/models",
+      "GET /api/v1/models/",
+      "GET /api/v1/models/running",
+      "GET /api/v1/models/{id}/get_progress",
+      "GET /api/v1/models/{id}/unload_candidate",
+      "POST /api/v1/models/{id}/start",
+      "POST /api/v1/models/{id}/stop",
+      "POST /api/v1/models/{id}/download",
+      "DELETE /api/v1/models/{id}",
+      "GET /api/v1/npu/status",
+      "GET /api/v1/sys/status",
+      "GET /api/v1/sys/ac_power/",
+      "POST /api/v1/sys/ac_power/",
+      "GET /api/v1/statistics/week_usage",
+      "GET /api/v1/statistics/app_week_usage",
+      "POST /v1/chat/completions",
+      "POST /v1/systemone",
+      "POST /v1/embeddings"
+    ],
+    "models": {
+      "loads": true,
+      "unloads": true,
+      "evicts": false
+    }
+  },
+  "background": {
+    "poller": {
+      "everyMs": 5000,
+      "endpoints": [
+        "GET /api/v1/models/running",
+        "GET /v1/models"
+      ]
+    },
+    "locks": [
+      "engine"
+    ],
+    "state": {
+      "dir": "tiinyos-linux",
+      "files": [
+        "care.json",
+        "care-journal.json",
+        "care-log.jsonl",
+        "engine.lock"
+      ]
+    }
+  }
+}

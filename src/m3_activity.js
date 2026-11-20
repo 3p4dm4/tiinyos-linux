@@ -7,6 +7,9 @@
  *   p8800 /v1/models          -> models currently in memory
  * Pure classification in classify() (testable without Electron). */
 const { BASE, P8800, jget } = require('./m3_device');
+// Shared engine instance (require cache): the care engine's current task is
+// the line that must win on tray + ball, so strip/ball/tray never disagree.
+const m3care = require('./m3_care');
 
 const BUSY_UTIL = 25; // % NPU utilization that counts as "working"
 
@@ -73,16 +76,23 @@ let lastLabel = null;
 
 async function tick(tray) {
   let state;
-  try {
-    const [npu, store, loaded] = await Promise.all([
-      jget(`${P8800}/api/v1/npu/status`),
-      jget(`${BASE}/api/v1/models/`),
-      jget(`${P8800}/v1/models`),
-    ]);
-    const util = npu?.devices?.[0]?.util_percent;
-    state = classify({ util, models: store?.data, loadedCount: (loaded?.data || []).length });
-  } catch (e) {
-    state = { label: 'Device unreachable', busy: false };
+  const task = m3care.currentTask();
+  if (task) {
+    // One running task (restore > update > download) wins over raw signals:
+    // the same line goes to the strip, the ball and the tray.
+    state = { label: task.line, busy: true };
+  } else {
+    try {
+      const [npu, store, loaded] = await Promise.all([
+        jget(`${P8800}/api/v1/npu/status`),
+        jget(`${BASE}/api/v1/models/`),
+        jget(`${P8800}/v1/models`),
+      ]);
+      const util = npu?.devices?.[0]?.util_percent;
+      state = classify({ util, models: store?.data, loadedCount: (loaded?.data || []).length });
+    } catch (e) {
+      state = { label: 'Device unreachable', busy: false };
+    }
   }
   if (state.label === lastLabel) return;
   lastLabel = state.label;
@@ -100,9 +110,13 @@ async function tick(tray) {
 function start(tray) {
   if (started) return;
   started = true;
+  // The care engine runs app-wide (outage detection, restore, updates)
+  // whether or not the Device window ever opens: it starts here, from the
+  // one injection point every installed bundle has. Idempotent.
+  try { m3care.start(); } catch (e) { console.error('[M3] care engine:', e); }
   tick(tray);
   setInterval(() => tick(tray), 5000);
   console.log('[M3] activity indicator started');
 }
 
-module.exports = { start, classify, shortName };
+module.exports = { start, classify, shortName, _tick: tick };

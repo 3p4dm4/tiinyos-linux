@@ -3,7 +3,7 @@
 ## What this repo is
 
 Feature pack that patches the official TiinyOS Electron bundle to run on Linux
-with two added windows (Performance, embedded Control Panel) plus the Linux
+with added windows (Device, embedded Control Panel) plus the Linux
 PC service (`pcsvr-rs/`, Rust) the app needs to see the device. There is **no proprietary code here**: the bundle is downloaded at
 build time by `build_clone.sh`. Keep it that way — never commit bundle
 artifacts, `app.asar*`, Electron binaries, or anything under a clone dir.

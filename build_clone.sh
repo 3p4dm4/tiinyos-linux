@@ -53,7 +53,7 @@ Clone assembled. Two manual steps remain (they need root / per-network knowledge
   1. Device name resolution — the app resolves *.api.tiiny hostnames to the
      Pocket's USB network IP. Add to /etc/hosts (IP of the device, e.g. from
      `ip addr` on the usb0/usb1 interface):
-        <device-ip>  api.tiiny  models.api.tiiny  <see README "network">
+        the two lines in docs/network.md (14 names), with your device IP
 
   2. Run it:  ~/.local/tiinyos-clone/run.sh
      Then apply the feature pack:  ./install.sh --clone-dir <DIR>

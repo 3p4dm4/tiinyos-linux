@@ -3,42 +3,64 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' data:; connect-src 'none'">
-<title>Performance</title>
+<title>Device</title>
 <link rel="stylesheet" href="performance.css">
 </head>
 <body>
-<h1>Performance — device</h1>
-<div class="sub">live device metrics · capability-aware benchmark (chat → tok/s, decision → forward-pass latency, embedding → tok/s)</div>
 
-<div class="grid">
-  <div class="card"><div class="k">CPU</div><div class="v" id="g-cpu">—</div><div class="bar"><i id="b-cpu"></i></div><div class="d" id="d-cpu"></div></div>
-  <div class="card"><div class="k">RAM</div><div class="v" id="g-ram">—</div><div class="bar"><i id="b-ram"></i></div><div class="d" id="d-ram"></div></div>
-  <div class="card"><div class="k">NPU</div><div class="v" id="g-npu">—</div><div class="bar"><i id="b-npu"></i></div><div class="d" id="d-npu"></div></div>
-  <div class="card"><div class="k">Disk</div><div class="v" id="g-disk">—</div><div class="bar"><i id="b-disk"></i></div><div class="d" id="d-disk"></div></div>
-  <div class="card"><div class="k">NPU state</div><div class="v" id="g-state">—</div><div class="d" id="d-state"></div></div>
+<header>
+  <h1>Device</h1>
+  <div role="tablist" aria-label="Device sections">
+    <button type="button" role="tab" id="tab-status" aria-selected="true" aria-controls="p-status">Status</button>
+    <button type="button" role="tab" id="tab-models" aria-selected="false" aria-controls="p-models" tabindex="-1">Models</button>
+    <button type="button" role="tab" id="tab-usage" aria-selected="false" aria-controls="p-usage" tabindex="-1">Usage</button>
+    <button type="button" role="tab" id="tab-power" aria-selected="false" aria-controls="p-power" tabindex="-1">Power</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="note" id="dev-ver">Tiiny Pocket</span>
+  <button type="button" id="theme" aria-label="Theme: follows the system. Press to change">Theme: system</button>
+</header>
+
+<!-- Persistent strip: reach + the one request + the one running task.
+     Always visible; the same two facts go to the Floating Ball tooltip and the tray. -->
+<div class="strip" id="strip" aria-live="polite">
+  <span id="strip-reach"><span class="st idle">Reading…</span></span>
+  <span class="task" id="strip-req"></span>
+  <span class="spacer"></span>
+  <span class="task" id="strip-task"></span>
+  <span class="meter" id="strip-meter" aria-hidden="true"><i></i></span>
+  <button type="button" id="strip-details" data-tab="tab-status">Details</button>
 </div>
 
-<h2>In memory</h2>
-<table id="t-models">
-  <thead><tr><th>Model</th><th class="mono">Context</th><th>Usage</th><th></th></tr></thead>
-  <tbody><tr><td colspan="4" class="note">loading…</td></tr></tbody>
-</table>
+<main>
 
-<h2>Model store</h2>
-<div id="t-store" class="cats"><div class="note">loading…</div></div>
-<p class="note" id="store-total"></p>
+  <div role="tabpanel" id="p-status" aria-labelledby="tab-status">
+    <!-- filled by m3perf/status.js -->
+  </div>
 
-<h2>Benchmark</h2>
-<table id="t-bench">
-  <thead><tr><th>Model</th><th>Type</th><th class="mono">TTFT ms</th><th class="mono">Total ms</th><th class="mono">Tok/s</th><th>Result</th></tr></thead>
-  <tbody><tr><td colspan="6" class="note">no benchmark run yet</td></tr></tbody>
-</table>
-<p class="note">chat: TTFT = time to first token, tok/s = decode (256 tok max, stream). decision: /v1/systemone, 3 typed questions (score/choice/noul) in a single forward pass — tok/s = prefills. embedding: /v1/embeddings on fixed text.</p>
+  <div role="tabpanel" id="p-models" aria-labelledby="tab-models" hidden>
+    <!-- filled by m3perf/models.js -->
+  </div>
 
-<script src="m3perf/format.js"></script>
-<script src="m3perf/gauges.js"></script>
-<script src="m3perf/models.js"></script>
+  <div role="tabpanel" id="p-usage" aria-labelledby="tab-usage" hidden>
+    <!-- filled by m3perf/usage.js + chart.js -->
+  </div>
+
+  <div role="tabpanel" id="p-power" aria-labelledby="tab-power" hidden>
+    <!-- filled by m3perf/power.js -->
+  </div>
+
+</main>
+
+<script src="m3perf/helpers.js"></script>
+<script src="m3perf/tabs.js"></script>
 <script src="m3perf/bench.js"></script>
+<script src="m3perf/status.js"></script>
+<script src="m3perf/models.js"></script>
+<script src="m3perf/chart.js"></script>
+<script src="m3perf/usage.js"></script>
+<script src="m3perf/power.js"></script>
+<script src="m3perf/data.js"></script>
 <script src="m3perf/main.js"></script>
 </body>
 </html>

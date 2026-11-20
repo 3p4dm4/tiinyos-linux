@@ -1,8 +1,16 @@
-/* M3 perf — entry point: wires the modules and the polling cadence. */
-window.M3 = window.M3 || {};
+/* M3 Device — entry point. Boots the tabs, the data layer and the Status tab.
+ * Each later tab (models/usage/power) plugs in here with its own init().
+ */
 (function () {
-  M3.gauges.refresh();
-  M3.models.refresh();
-  setInterval(() => M3.gauges.refresh(), 5000);
-  setInterval(() => M3.models.refresh(), 60000);
+  function boot() {
+    M3.tabs.init();
+    M3.status.init();
+    M3.models.init();
+    M3.usage.init();
+    M3.power.init();
+    M3.data.start();
+    if (window.m3 && window.m3.ready) window.m3.ready();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();

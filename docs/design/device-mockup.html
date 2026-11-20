@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device</title>
+<style>
+/* ---- tokens: light on :root, dark via OS preference and via manual toggle ---- */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --surface-2:#eceef2; --line:#d4d9e1; --line-strong:#6b7484;
+  --text:#1a1d24; --muted:#5b6472;
+  --ok:#166534; --warn:#9a4a08; --bad:#b91c1c; --accent:#2563eb; --accent-ink:#ffffff;
+  --shadow:rgb(0 0 0 / 0.18);
+  /* data series (identity only; fixed order, assigned on first sight, never cycled) */
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100;
+  --series-5:#e87ba4; --series-6:#008300; --series-7:#4a3aa7; --series-8:#e34948;
+  --fs-1:12px; --fs-2:13px; --fs-3:14px; --fs-4:16px; --fs-5:20px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --r-1:4px; --r-2:8px; --target:24px; --row-h:36px; --strip-h:32px; --chart-h:240px;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif; --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --surface:#171a21; --surface-2:#1e222b; --line:#2a2f3a; --line-strong:#6b7484;
+    --text:#e8eaf0; --muted:#9ea6b4;
+    --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; --accent:#6ea8fe; --accent-ink:#0b1220;
+    --shadow:rgb(0 0 0 / 0.55);
+    --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --series-4:#c98500;
+    --series-5:#d55181; --series-6:#008300; --series-7:#9085e9; --series-8:#e66767;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --surface:#171a21; --surface-2:#1e222b; --line:#2a2f3a; --line-strong:#6b7484;
+  --text:#e8eaf0; --muted:#9ea6b4;
+  --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; --accent:#6ea8fe; --accent-ink:#0b1220;
+  --shadow:rgb(0 0 0 / 0.55);
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --series-4:#c98500;
+  --series-5:#d55181; --series-6:#008300; --series-7:#9085e9; --series-8:#e66767;
+}
+
+/* ---- base ---- */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-3)/1.45 var(--sans);
+  display:flex;flex-direction:column;min-height:100dvh;overflow:hidden}
+h1,h2,h3{margin:0;font-weight:600}
+h1{font-size:var(--fs-4)}
+h2{font-size:var(--fs-3);color:var(--text)}
+h3{font-size:var(--fs-2);color:var(--muted);font-weight:500}
+p{margin:0}
+a{color:var(--accent)}
+.muted{color:var(--muted)}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:var(--fs-1)}
+.right{text-align:right}
+.nowrap{white-space:nowrap}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- header + tabs + strip ---- */
+header{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-4);
+  border-bottom:1px solid var(--line);background:var(--surface);flex:none}
+header .spacer{flex:1}
+[role="tablist"]{display:flex;gap:var(--sp-1)}
+[role="tab"]{background:none;border:0;color:var(--muted);font:500 var(--fs-3)/1 var(--sans);
+  padding:var(--sp-2) var(--sp-3);border-radius:var(--r-1);min-height:var(--target);cursor:pointer}
+[role="tab"][aria-selected="true"]{color:var(--text);background:var(--surface-2)}
+[role="tab"]:hover{color:var(--text)}
+.strip{display:flex;align-items:center;gap:var(--sp-4);min-height:var(--strip-h);
+  padding:0 var(--sp-4);font-size:var(--fs-1);color:var(--muted);border-bottom:1px solid var(--line);
+  background:var(--surface);flex:none}
+.strip .spacer{flex:1}
+.strip > span{white-space:nowrap}
+.strip .task{color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis}
+.strip .meter{width:120px}
+.strip.offline{color:var(--bad)}
+.strip.stale{color:var(--warn)}
+
+/* ---- panels ---- */
+main{flex:1;overflow:auto;min-height:0}
+[role="tabpanel"]{padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-5);max-width:100%}
+[role="tabpanel"][hidden]{display:none}
+section{display:flex;flex-direction:column;gap:var(--sp-2)}
+.sec-head{display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap}
+.sec-head .spacer{flex:1}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--sp-3) var(--sp-4)}
+.panel .cols{margin-top:var(--sp-2)}
+
+/* ---- kpi row (replaces hero cards) ---- */
+.kpi{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;margin:0;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2)}
+.kpi > div{padding:var(--sp-2) var(--sp-3);border-right:1px solid var(--line);min-width:0}
+.kpi > div:last-child{border-right:0}
+.kpi dt{font-size:var(--fs-1);color:var(--muted)}
+.kpi dd{margin:0;font-size:var(--fs-4);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.3}
+.kpi dd small{font-size:var(--fs-1);font-weight:400;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.meter{height:var(--sp-1);background:var(--surface-2);border-radius:var(--r-1);overflow:hidden;margin-top:var(--sp-1)}
+.meter > i{display:block;height:100%;background:var(--accent)}
+.meter.warn > i{background:var(--warn)}
+.meter.bad > i{background:var(--bad)}
+
+/* ---- tables ---- */
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);
+  font-variant-numeric:tabular-nums;table-layout:auto}
+th,td{padding:var(--sp-1) var(--sp-3);text-align:left;border-bottom:1px solid var(--line);
+  font-size:var(--fs-2);height:var(--row-h);vertical-align:middle}
+th{color:var(--muted);font-weight:500;font-size:var(--fs-1);background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.name{font-family:var(--mono);font-size:var(--fs-1);max-width:30ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th.right,td.right{text-align:right}
+th,td.num,td.ver,td.state,td.when{white-space:nowrap}
+td.state .note{white-space:nowrap}
+tbody.group th{background:var(--surface);color:var(--text);font-weight:600;font-size:var(--fs-1);padding-top:var(--sp-2)}
+tfoot td{font-weight:600;background:var(--surface-2)}
+.tag{display:inline-block;padding:0 var(--sp-2);border-radius:var(--r-1);font-size:var(--fs-1);
+  background:var(--surface-2);border:1px solid var(--line);margin-right:var(--sp-1);line-height:1.6}
+td .meter{width:72px;display:inline-block;vertical-align:middle;margin:0 var(--sp-2) 0 0}
+
+/* ---- status vocabulary: glyph + word, never color alone ---- */
+.st{white-space:nowrap}
+.st::before{display:inline-block;width:1.2em;font-family:var(--mono)}
+.st.ok::before{content:"●"} .st.warn::before{content:"◐"} .st.bad::before{content:"✕"} .st.idle::before{content:"○";color:var(--muted)}
+
+/* ---- controls (native elements, one style each) ---- */
+button{font:500 var(--fs-2)/1 var(--sans);min-height:var(--target);padding:var(--sp-1) var(--sp-3);
+  border-radius:var(--r-1);cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);color:var(--text)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.danger{border-color:var(--bad);color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+button[aria-busy="true"]::before{content:"";display:inline-block;width:var(--sp-3);height:var(--sp-3);margin-right:var(--sp-2);
+  vertical-align:-2px;border-radius:50%;border:2px solid var(--muted);border-top-color:transparent}
+button[aria-pressed="true"]{background:var(--surface-2);border-color:var(--line-strong)}
+.filters{display:flex;flex-wrap:wrap;gap:var(--sp-1)}
+.filters button{border-color:var(--line);color:var(--muted)}
+.filters button[aria-pressed="true"]{color:var(--text)}
+.weeknav{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
+.weeknav .spacer{flex:1}
+input[type="checkbox"],input[type="radio"]{width:var(--sp-4);height:var(--sp-4);margin:0;accent-color:var(--accent);
+  border:1px solid var(--line-strong);vertical-align:middle}
+.tgt{display:inline-flex;align-items:center;justify-content:center;min-width:var(--target);min-height:var(--target);cursor:pointer}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
+legend{padding:0;font-weight:600;font-size:var(--fs-2);margin-bottom:var(--sp-2)}
+.opt{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-1) var(--sp-2);align-items:start}
+.opt label{font-size:var(--fs-2)}
+.opt .help{grid-column:2;font-size:var(--fs-1);color:var(--muted)}
+.switchrow{display:grid;grid-template-columns:auto 1fr auto;gap:var(--sp-2) var(--sp-3);align-items:center;align-content:start}
+.switchrow .help{grid-column:2 / 4;font-size:var(--fs-1);color:var(--muted)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
+.advice{border-left:3px solid var(--warn);padding:var(--sp-2) var(--sp-3);background:var(--surface);font-size:var(--fs-2)}
+.advice strong{color:var(--warn)}
+.note{font-size:var(--fs-1);color:var(--muted)}
+.steps{margin:0;padding-left:var(--sp-5);font-size:var(--fs-2);display:flex;flex-direction:column;gap:var(--sp-1)}
+.steps li.done{color:var(--muted)}
+.steps li.now{font-weight:600}
+blockquote{margin:0;padding:var(--sp-2) var(--sp-3);border-left:3px solid var(--line-strong);color:var(--muted);font-size:var(--fs-2)}
+details{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2)}
+summary{padding:var(--sp-2) var(--sp-4);cursor:pointer;font-size:var(--fs-2);min-height:var(--target)}
+details table{border:0;border-top:1px solid var(--line);border-radius:0}
+
+/* ---- chart (one series color per model; text wears text tokens) ---- */
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);padding:var(--sp-3) var(--sp-4);position:relative}
+figure svg{display:block;width:100%;height:var(--chart-h);font:var(--fs-1)/1 var(--sans);overflow:visible}
+figure text{fill:var(--muted);font-variant-numeric:tabular-nums}
+figure text.cap{fill:var(--text)}
+figure .grid{stroke:var(--line);stroke-width:1}
+figure .axis{stroke:var(--line-strong);stroke-width:1}
+figure .seg{stroke:var(--surface);stroke-width:2}
+figure g.col:focus-visible{outline:2px solid var(--accent)}
+figure g.col .hit{fill:transparent}
+figure .legend{display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-4);margin-top:var(--sp-2);font-size:var(--fs-1);color:var(--muted)}
+.sw{display:inline-block;width:var(--sp-3);height:var(--sp-3);border-radius:var(--r-1);vertical-align:-1px;margin-right:var(--sp-1)}
+.ctip{position:absolute;pointer-events:none;background:var(--text);color:var(--bg);font-size:var(--fs-1);
+  padding:var(--sp-1) var(--sp-2);border-radius:var(--r-1);white-space:pre;display:none;z-index:1}
+.ctip.on{display:block}
+
+/* ---- dialog ---- */
+dialog{background:var(--surface);color:var(--text);border:1px solid var(--line-strong);border-radius:var(--r-2);
+  padding:var(--sp-4) var(--sp-5);max-width:60ch;box-shadow:0 var(--sp-2) var(--sp-5) var(--shadow)}
+dialog::backdrop{background:var(--shadow)}
+dialog h2{margin-bottom:var(--sp-3)}
+dialog .actions{display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-4)}
+dialog p + p, dialog blockquote + p, dialog p + blockquote{margin-top:var(--sp-2)}
+
+/* ---- states preview ---- */
+.preview{display:flex;flex-direction:column;gap:var(--sp-2)}
+.preview .strip{border:1px solid var(--line);border-radius:var(--r-1)}
+
+@media (max-width: 900px){
+  .kpi,.kpi.five{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpi > div:nth-child(3n){border-right:0}
+  .cols{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: no-preference){
+  @keyframes spin{to{transform:rotate(360deg)}}
+  button[aria-busy="true"]::before{animation:spin 800ms linear infinite}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Device</h1>
+  <div role="tablist" aria-label="Device sections">
+    <button type="button" role="tab" id="tab-status" aria-selected="true" aria-controls="p-status">Status</button>
+    <button type="button" role="tab" id="tab-models" aria-selected="false" aria-controls="p-models" tabindex="-1">Models</button>
+    <button type="button" role="tab" id="tab-usage" aria-selected="false" aria-controls="p-usage" tabindex="-1">Usage</button>
+    <button type="button" role="tab" id="tab-power" aria-selected="false" aria-controls="p-power" tabindex="-1">Power</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="muted" style="font-size:var(--fs-1)">Tiiny Pocket · TiinyOS 0.1.38</span>
+  <button type="button" id="theme" aria-label="Theme: follows the system. Press to change">Theme: system</button>
+</header>
+
+<div class="strip" id="strip">
+  <span><span class="st ok">Reachable</span> · last read <span class="num">16:42:18</span> · every 5 s</span>
+  <span class="task"><span class="num">1</span> request · Huihui-Ornith</span>
+  <span class="spacer"></span>
+  <span class="task">Restoring · AceStep-XL-Turbo <span class="num">40%</span> · 1 of 3</span>
+  <span class="meter" aria-hidden="true"><i style="width:40%"></i></span>
+  <button type="button" data-tab="tab-status">Details</button>
+</div>
+
+<main>
+
+<!-- ============================ STATUS ============================ -->
+<div role="tabpanel" id="p-status" aria-labelledby="tab-status">
+
+  <section aria-label="Live metrics">
+    <dl class="kpi">
+      <div><dt>CPU</dt><dd>14%<small>12 cores</small></dd><div class="meter" aria-hidden="true"><i style="width:14%"></i></div></div>
+      <div><dt>RAM</dt><dd>38%<small>11.9 / 31.1 GB</small></dd><div class="meter" aria-hidden="true"><i style="width:38%"></i></div></div>
+      <div><dt>NPU load</dt><dd>45%<small>inference</small></dd><div class="meter" aria-hidden="true"><i style="width:45%"></i></div></div>
+      <div><dt>NPU memory</dt><dd>86%<small>41.1 / 47.9 GB · 6.8 GB free</small></dd><div class="meter warn" aria-hidden="true"><i style="width:86%"></i></div></div>
+      <div><dt>Disk</dt><dd>33%<small>284.0 / 857.9 GB · models 177.7 GB</small></dd><div class="meter" aria-hidden="true"><i style="width:33%"></i></div></div>
+      <div><dt>NPU state</dt><dd><span class="st ok">ready</span><small>LQ50-48GB · 41 °C · 12 W</small></dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="h-now">
+    <div class="sec-head"><h2 id="h-now">Right now</h2>
+      <span class="note"><span class="num">1</span> request in flight · <span class="num">1</span> load · <span class="num">1</span> download · restore <span class="num">1</span> of <span class="num">3</span> · <span class="num">1</span> benchmark · one request at a time on the device</span>
+      <span class="spacer"></span><span class="note">read <span class="num">16:42:18</span> · every 5 s</span></div>
+    <h3 id="h-mem">In memory · 3 models · NPU memory <span class="num">41.1 / 47.9 GB</span></h3>
+    <table aria-labelledby="h-mem">
+      <thead><tr>
+        <th>Model</th><th>Use</th><th>Now</th><th>Last used</th><th class="right">NPU</th><th>Last benchmark</th><th></th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="name" title="huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo">Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo</td>
+          <td><span class="tag">chat</span><span class="tag">vision</span></td>
+          <td class="state" title="Loaded 16:32:01 by the device"><span class="st ok">Answering</span> <span class="num">1</span> request · <span class="num">8 s</span></td>
+          <td class="num">16:42:10</td><td class="right num">34%</td>
+          <td class="num"><span class="num">16:40</span> · 312 ms · 38.4 tok/s</td>
+          <td class="right"><button type="button">Benchmark</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="ACE-Step/AceStep-XL-Turbo">AceStep-XL-Turbo</td>
+          <td><span class="tag">music</span></td>
+          <td class="state" title="Load started 16:33:10 by the restore"><span class="st warn">Loading</span> <span class="meter" aria-hidden="true"><i style="width:40%"></i></span><span class="num">40%</span> · restore</td>
+          <td class="num">—</td><td class="right num">—</td>
+          <td><span class="note">no benchmark for music</span></td>
+          <td class="right"><button type="button">Stop</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="Qwen/Qwen3-Embedding-0.6B">Qwen3-Embedding-0.6B</td>
+          <td><span class="tag">embedding</span></td>
+          <td class="state"><span class="st idle">Queued</span> <span class="note">after AceStep</span></td>
+          <td class="num">—</td><td class="right num">—</td>
+          <td class="num"><span class="num">16:40</span> · 41 ms · 1,850 tok/s</td>
+          <td class="right"><button type="button" aria-busy="true" disabled>Benchmark</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 id="h-tasks">Tasks · what the device and this PC are working on</h3>
+    <table aria-labelledby="h-tasks">
+      <thead><tr><th>Task</th><th>Where</th><th>Progress</th><th>Started</th><th class="right">Left</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Restore · after the 16:31 outage</td><td>this PC</td>
+          <td class="state"><span class="st warn">Running</span> AceStep-XL-Turbo <span class="num">40%</span> · 1 of 3 to load</td>
+          <td class="num">16:32:05</td><td class="right num">~3 min</td>
+          <td class="right"><button type="button">Stop</button> <button type="button" data-tab="tab-power">Details</button></td>
+        </tr>
+        <tr>
+          <td>Download · Qwen3-ASR-1.7B</td><td>device</td>
+          <td class="state"><span class="st warn">Running</span> <span class="meter" aria-hidden="true"><i style="width:62%"></i></span><span class="num">62%</span> · 1.2 of 1.9 GB</td>
+          <td class="num">16:38:40</td><td class="right num">~2 min</td>
+          <td class="right"><button type="button">Pause</button></td>
+        </tr>
+        <tr>
+          <td>Benchmark · Qwen3-Embedding-0.6B</td><td>this PC</td>
+          <td class="state"><span class="st warn">Waiting</span> <span class="note">Ornith is answering · one request at a time</span></td>
+          <td class="num">16:42:12</td><td class="right num">—</td>
+          <td class="right"><button type="button">Cancel</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-act">
+    <div class="sec-head"><h2 id="h-act">Activity log</h2><span class="note">today · newest first · kept 7 days on this PC</span><span class="spacer"></span><button type="button">Earlier days</button></div>
+    <table>
+      <thead><tr><th>When</th><th>Event</th><th>Detail</th><th>Seen by</th></tr></thead>
+      <tbody>
+        <tr><td class="when num">16:42:12</td><td>Benchmark started</td><td>Qwen3-Embedding-0.6B · embedding · waiting for the device</td><td>this PC</td></tr>
+        <tr><td class="when num">16:40:12</td><td>Benchmark</td><td>Qwen3-Embedding-0.6B · 41 ms · 1,850 tok/s</td><td>this PC</td></tr>
+        <tr><td class="when num">16:40:03</td><td>Benchmark</td><td>Huihui-Ornith · chat · TTFT 312 ms · 38.4 tok/s · 256 tokens</td><td>this PC</td></tr>
+        <tr><td class="when num">16:38:40</td><td>Download started</td><td>Qwen3-ASR-1.7B · 1.9 GB · from the Model store</td><td>device</td></tr>
+        <tr><td class="when num">16:33:10</td><td>Load started</td><td>AceStep-XL-Turbo · restore 1 of 3</td><td>this PC</td></tr>
+        <tr><td class="when num">16:32:05</td><td>Restore started</td><td>Keep loaded · 3 to load · Ornith already back · gemma-4-31B-it does not fit</td><td>this PC</td></tr>
+        <tr><td class="when num">16:32:01</td><td><span class="st ok">Device answers again</span></td><td>no answer for <span class="num">49 s</span> · USB link back · 1 model in memory (Ornith)</td><td>this PC</td></tr>
+        <tr><td class="when num">16:31:12</td><td><span class="st bad">Device stopped answering</span></td><td>USB link down · 3 models were in memory</td><td>this PC</td></tr>
+        <tr><td class="when num">16:01:24</td><td>Restore finished</td><td>2 of 2 loaded · <span class="num">3 min 10 s</span></td><td>this PC</td></tr>
+        <tr><td class="when num">15:58:14</td><td><span class="st ok">Device answers again</span></td><td>no answer for <span class="num">44 s</span> · USB link back · 1 model in memory</td><td>this PC</td></tr>
+        <tr><td class="when num">15:57:30</td><td><span class="st bad">Device stopped answering</span></td><td>USB link down · 3 models were in memory</td><td>this PC</td></tr>
+        <tr><td class="when num">14:12:40</td><td>Unloaded</td><td>gemma-4-31B-it · from Models</td><td>this PC</td></tr>
+        <tr><td class="when num">13:48:40</td><td>Restore partial</td><td>1 of 2 · d3 did not fit · needs <span class="num">27.3 GB</span>, <span class="num">14.6 GB</span> free</td><td>this PC</td></tr>
+        <tr><td class="when num">13:21:40</td><td>Benchmark</td><td>d3-flash · decision · 188 ms</td><td>this PC</td></tr>
+        <tr><td class="when num">13:05:02</td><td>Loaded</td><td>d3-flash · by another client</td><td>device</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-bench">
+    <div class="sec-head"><h2 id="h-bench">Benchmark runs</h2><span class="note">last 9 · chat: 256 tokens streamed · decision: 3 typed questions in one forward pass · embedding: fixed text</span></div>
+    <table>
+      <thead><tr><th>When</th><th>Model</th><th>Kind</th><th class="right">TTFT ms</th><th class="right">Total ms</th><th class="right">Tok/s</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td class="num">16:40:12</td><td class="name">Qwen3-Embedding-0.6B</td><td>embedding</td><td class="right num">41</td><td class="right num">41</td><td class="right num">1,850</td><td class="note">76 tok prefill</td></tr>
+        <tr><td class="num">16:40:03</td><td class="name">Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo</td><td>chat</td><td class="right num">312</td><td class="right num">6,980</td><td class="right num">38.4</td><td class="note">256 tok · 1,102 char</td></tr>
+        <tr><td class="num">13:21:40</td><td class="name">d3-flash</td><td>decision</td><td class="right num">—</td><td class="right num">188</td><td class="right num">1,213</td><td class="note">sev: high · cat: network · blocked: yes</td></tr>
+        <tr><td class="num">13:20:55</td><td class="name">Qwen3.6-35B-A3B-Turbo</td><td>chat</td><td class="right num">—</td><td colspan="3" class="bad">HTTP 503 model not loaded — load it from Models, then run again</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-states">
+    <div class="sec-head"><h2 id="h-states">Connection strip, other states</h2><span class="note">design preview of the strip above when the device is not fresh (not part of the window)</span></div>
+    <div class="preview">
+      <div class="strip offline"><span><span class="st bad">Unreachable</span> since <span class="num">16:31:12</span> · USB link down · retrying every 5 s · numbers below are from <span class="num">16:31:07</span></span><span class="spacer"></span><span class="task">Restore will start when the device answers</span></div>
+      <div class="strip stale"><span><span class="st warn">Stale</span> · last read <span class="num">16:35:40</span> (6 min ago) · device answers 502 until the TiinyOS app reconnects</span><span class="spacer"></span><button type="button">Read now</button></div>
+      <div class="strip"><span><span class="st ok">Reachable</span> · last read <span class="num">16:42:18</span> · every 5 s</span><span class="task">idle</span><span class="spacer"></span><span class="task">Updating d3-flash · step 3 of 4 · downloading <span class="num">62%</span> · ~4 min</span><span class="meter" aria-hidden="true"><i style="width:62%"></i></span><button type="button" data-tab="tab-models">Details</button></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================ MODELS ============================ -->
+<div role="tabpanel" id="p-models" aria-labelledby="tab-models" hidden>
+
+  <section aria-label="Inventory summary">
+    <div class="sec-head">
+      <h2>Installed</h2>
+      <span class="note"><span class="num">14</span> models · <span class="num">177.7 GB</span> on disk · <span class="num">3</span> in memory · <span class="num">4</span> kept loaded · <span class="num">2</span> updates available · <span class="num">1</span> downloading</span>
+      <span class="spacer"></span>
+      <span class="note">store read <span class="num">16:42:00</span> · every 60 s</span>
+    </div>
+    <div class="filters" role="group" aria-label="Filter models">
+      <button type="button" aria-pressed="true">All (14)</button>
+      <button type="button" aria-pressed="false">In memory (3)</button>
+      <button type="button" aria-pressed="false">Kept loaded (4)</button>
+      <button type="button" aria-pressed="false">Updates (2)</button>
+      <button type="button" aria-pressed="false">Chat &amp; vision (5)</button>
+      <button type="button" aria-pressed="false">Decision (3)</button>
+      <button type="button" aria-pressed="false">Embedding (1)</button>
+      <button type="button" aria-pressed="false">Speech (3)</button>
+      <button type="button" aria-pressed="false">Media (2)</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-upd">
+    <div class="sec-head">
+      <h2 id="h-upd">Updates</h2>
+      <span class="note">2 available · versions are release dates · applied one at a time · each one deletes the old model first</span>
+      <span class="spacer"></span>
+      <button type="button" data-dialog="dlg-update-all">Update all (2)</button>
+    </div>
+    <table>
+      <thead><tr><th>Model</th><th>Installed</th><th>Available</th><th>Update</th><th class="right">Download</th><th class="right">Unusable for</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="name" title="Qwen/Qwen3.6-35B-A3B-Turbo">Qwen3.6-35B-A3B-Turbo</td>
+          <td class="num">2026-11-09</td><td class="num">2026-11-19</td>
+          <td>Audio URL input for the API</td>
+          <td class="right num">16.5 GB</td><td class="right num">~25 min</td>
+          <td class="right"><button type="button" class="primary" data-dialog="dlg-update">Update</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="d3-flash">d3-flash</td>
+          <td class="num">2026-10-28</td><td class="num">2026-11-17</td>
+          <td>Faster prefill on long inputs</td>
+          <td class="right num">9.3 GB</td><td class="right num">~14 min</td>
+          <td class="right"><button type="button" class="primary">Update</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-inv">
+    <div class="sec-head"><h2 id="h-inv">All models</h2><span class="note">Keep loaded = reloaded after an outage if missing, when the restore policy in Power allows it · Version = release date from the device, → = update available</span></div>
+    <table>
+      <thead><tr>
+        <th>Model</th><th>Type</th><th class="right">Size</th><th>State</th><th class="right">NPU</th><th>Keep loaded</th><th>Version</th><th></th>
+      </tr></thead>
+      <tbody class="group">
+        <tr><th colspan="8">Chat &amp; vision · 5 models · <span class="num">73.7 GB</span></th></tr>
+        <tr>
+          <td class="name" title="huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo">Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo</td>
+          <td title="Image-Text-to-Text">Vision chat</td><td class="right num">16.3 GB</td>
+          <td class="state"><span class="st ok">In memory</span> <span class="note">1 request</span></td><td class="right num">34%</td>
+          <td><label class="tgt"><input type="checkbox" checked><span class="sr-only">Keep Huihui-Ornith loaded</span></label></td>
+          <td class="ver num">2026-11-02</td>
+          <td class="right"><button type="button">Unload</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="Qwen/Qwen3.6-35B-A3B-Turbo">Qwen3.6-35B-A3B-Turbo</td>
+          <td title="Text Generation">Chat</td><td class="right num">16.5 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep Qwen3.6-35B-A3B-Turbo loaded</span></label></td>
+          <td class="ver num" title="Update available: 2026-11-19">2026-11-09 <span class="warn">→ 11-19</span></td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="google/gemma-4-31B-it">gemma-4-31B-it</td>
+          <td title="Image-Text-to-Text">Vision chat</td><td class="right num">16.5 GB</td>
+          <td class="state"><span class="st warn">Not restored</span> <span class="note">6.8 of 16.5 GB free</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox" checked><span class="sr-only">Keep gemma-4-31B-it loaded</span></label></td>
+          <td class="ver num">2026-10-30</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="Qwen/Qwen3.8-27B">Qwen3.8-27B</td>
+          <td title="Text Generation">Chat</td><td class="right num">14.8 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep Qwen3.8-27B loaded</span></label></td>
+          <td class="ver num">2026-11-05</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="openai/gpt-oss-20b">gpt-oss-20b</td>
+          <td title="Text Generation">Chat</td><td class="right num">9.6 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep gpt-oss-20b loaded</span></label></td>
+          <td class="ver num">2026-09-14</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+      </tbody>
+      <tbody class="group">
+        <tr><th colspan="8">Decision · 3 models · <span class="num">41.5 GB</span></th></tr>
+        <tr>
+          <td class="name" title="d3">d3</td><td title="Text Classification">Decision</td><td class="right num">27.3 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep d3 loaded</span></label></td><td class="ver num">2026-10-28</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="d3-flash">d3-flash</td><td title="Text Classification">Decision</td><td class="right num">9.3 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep d3-flash loaded</span></label></td><td class="ver num" title="Update available: 2026-11-17">2026-10-28 <span class="warn">→ 11-17</span></td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="d3-mini">d3-mini</td><td title="Text Classification">Decision</td><td class="right num">4.9 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep d3-mini loaded</span></label></td><td class="ver num">2026-10-28</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+      </tbody>
+      <tbody class="group">
+        <tr><th colspan="8">Embedding · 1 model · <span class="num">0.9 GB</span></th></tr>
+        <tr>
+          <td class="name" title="Qwen/Qwen3-Embedding-0.6B">Qwen3-Embedding-0.6B</td><td title="Text Embedding">Embedding</td><td class="right num">0.9 GB</td>
+          <td class="state"><span class="st idle">Queued</span> <span class="note">restore</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox" checked><span class="sr-only">Keep Qwen3-Embedding-0.6B loaded</span></label></td><td class="ver num">2026-08-21</td>
+          <td class="right"><button type="button">Skip</button></td>
+        </tr>
+      </tbody>
+      <tbody class="group">
+        <tr><th colspan="8">Speech · 3 models + 1 downloading · <span class="num">4.1 GB</span></th></tr>
+        <tr>
+          <td class="name" title="Qwen/Qwen3-TTS-Base">Qwen3-TTS-Base</td><td title="Text-to-Speech">Speech</td><td class="right num">2.4 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep Qwen3-TTS-Base loaded</span></label></td><td class="ver num">2026-09-30</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="MOSS-TTS-Nano">MOSS-TTS-Nano</td><td title="Text-to-Speech">Speech</td><td class="right num">0.9 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep MOSS-TTS-Nano loaded</span></label></td><td class="ver num">2026-10-12</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="PP-OCRv6">PP-OCRv6</td><td>OCR</td><td class="right num">0.8 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep PP-OCRv6 loaded</span></label></td><td class="ver num">2026-07-03</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="Qwen/Qwen3-ASR-1.7B">Qwen3-ASR-1.7B</td><td title="ASR">Speech to text</td><td class="right num">1.9 GB</td>
+          <td class="state"><span class="st warn">Downloading</span> <span class="meter" aria-hidden="true"><i style="width:62%"></i></span><span class="num">62%</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox" disabled><span class="sr-only">Keep Qwen3-ASR-1.7B loaded (available after the download)</span></label></td><td class="ver num">2026-11-14</td>
+          <td class="right"><button type="button">Pause</button></td>
+        </tr>
+      </tbody>
+      <tbody class="group">
+        <tr><th colspan="8">Media · 2 models · <span class="num">57.5 GB</span></th></tr>
+        <tr>
+          <td class="name" title="ACE-Step/AceStep-XL-Turbo">AceStep-XL-Turbo</td><td title="Music Generation">Music</td><td class="right num">12.1 GB</td>
+          <td class="state"><span class="st warn">Loading</span> <span class="meter" aria-hidden="true"><i style="width:40%"></i></span><span class="num">40%</span> · restore</td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox" checked><span class="sr-only">Keep AceStep-XL-Turbo loaded</span></label></td><td class="ver num">2026-10-20</td>
+          <td class="right"><button type="button">Stop</button></td>
+        </tr>
+        <tr>
+          <td class="name" title="MiniMax-H3-Turbo">MiniMax-H3-Turbo</td><td title="Text-to-Video">Video</td><td class="right num">45.4 GB</td>
+          <td><span class="st idle">On disk</span></td><td class="right num">—</td>
+          <td><label class="tgt"><input type="checkbox"><span class="sr-only">Keep MiniMax-H3-Turbo loaded</span></label></td><td class="ver num">2026-10-31</td>
+          <td class="right"><button type="button">Load</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<!-- ============================ USAGE ============================ -->
+<div role="tabpanel" id="p-usage" aria-labelledby="tab-usage" hidden>
+
+  <section aria-label="Week">
+    <div class="weeknav">
+      <button type="button" id="wk-prev">Previous week</button>
+      <button type="button" id="wk-this" aria-pressed="true">This week</button>
+      <button type="button" id="wk-next" disabled aria-disabled="true">Next week</button>
+      <span id="wk-label"><strong>Week of <span class="num">2026-11-16</span></strong> <span class="note">Mon <span class="num">2026-11-16</span> to Sun <span class="num">2026-11-22</span> · 4 days so far</span></span>
+      <span class="spacer"></span>
+      <span class="note">counted on the device, every client included · read <span class="num">16:42:00</span> · every 60 s</span>
+    </div>
+    <dl class="kpi five" aria-label="Week totals">
+      <div><dt>Tokens this week</dt><dd>14.6M<small>14,615,900</small></dd></div>
+      <div><dt>Prompt</dt><dd>11.8M<small>81% of the total</small></dd></div>
+      <div><dt>Completion</dt><dd>2.8M<small>19% of the total</small></dd></div>
+      <div><dt>Requests</dt><dd>5,045<small>2,897 tokens per request</small></dd></div>
+      <div><dt>Busiest day</dt><dd>Tue 17<small>4.4M tokens · 1,612 requests</small></dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="h-chart">
+    <div class="sec-head"><h2 id="h-chart">Tokens per day by model</h2><span class="note">stacked by model · one color per model, kept across weeks · values in the table below</span></div>
+    <figure aria-labelledby="h-chart">
+      <svg id="chart" aria-labelledby="h-chart" aria-describedby="chart-desc"></svg>
+      <p id="chart-desc" class="sr-only">Stacked columns, one per day from Monday 2026-11-16 to Sunday 2026-11-22. The same numbers are in the table "Tokens per day by model, table view" below.</p>
+      <div class="legend" id="legend" aria-label="Models in the chart"></div>
+      <div class="ctip" id="ctip" role="status" aria-live="polite"></div>
+    </figure>
+    <details>
+      <summary>Table view of the chart · tokens per day by model</summary>
+      <table id="byday"><caption class="sr-only">Tokens per day by model, table view</caption></table>
+    </details>
+  </section>
+
+  <section aria-labelledby="h-bymodel">
+    <div class="sec-head"><h2 id="h-bymodel">By model</h2><span class="note">this week · sorted by total · prompt + completion = total</span></div>
+    <table>
+      <thead><tr><th>Model</th><th class="right">Prompt</th><th class="right">Completion</th><th class="right">Total</th><th class="right">Share</th><th class="right">Requests</th><th class="right">Tokens / request</th></tr></thead>
+      <tbody>
+        <tr><td class="name" title="huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo"><span class="sw" style="background:var(--series-1)" aria-hidden="true"></span>Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo</td><td class="right num">6,210,300</td><td class="right num">1,754,200</td><td class="right num">7,964,500</td><td class="right num">54%</td><td class="right num">612</td><td class="right num">13,014</td></tr>
+        <tr><td class="name" title="Qwen/Qwen3.6-35B-A3B-Turbo"><span class="sw" style="background:var(--series-2)" aria-hidden="true"></span>Qwen3.6-35B-A3B-Turbo</td><td class="right num">3,402,000</td><td class="right num">943,000</td><td class="right num">4,345,000</td><td class="right num">30%</td><td class="right num">288</td><td class="right num">15,087</td></tr>
+        <tr><td class="name" title="d3-flash"><span class="sw" style="background:var(--series-3)" aria-hidden="true"></span>d3-flash</td><td class="right num">1,538,900</td><td class="right num">1,700</td><td class="right num">1,540,600</td><td class="right num">11%</td><td class="right num">1,214</td><td class="right num">1,269</td></tr>
+        <tr><td class="name" title="google/gemma-4-31B-it"><span class="sw" style="background:var(--series-5)" aria-hidden="true"></span>gemma-4-31B-it</td><td class="right num">318,000</td><td class="right num">84,000</td><td class="right num">402,000</td><td class="right num">3%</td><td class="right num">41</td><td class="right num">9,805</td></tr>
+        <tr><td class="name" title="Qwen/Qwen3-Embedding-0.6B"><span class="sw" style="background:var(--series-4)" aria-hidden="true"></span>Qwen3-Embedding-0.6B</td><td class="right num">363,800</td><td class="right num">0</td><td class="right num">363,800</td><td class="right num">2%</td><td class="right num">2,890</td><td class="right num">126</td></tr>
+      </tbody>
+      <tfoot><tr><td>5 models</td><td class="right num">11,833,000</td><td class="right num">2,782,900</td><td class="right num">14,615,900</td><td class="right num">100%</td><td class="right num">5,045</td><td class="right num">2,897</td></tr></tfoot>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-byapp">
+    <div class="sec-head"><h2 id="h-byapp">By app</h2><span class="note">this week · the device reports totals per app, not per day · "default" = requests that name no app (API clients, this window's benchmarks)</span></div>
+    <table>
+      <thead><tr><th>App</th><th class="right">Tokens</th><th class="right">Share</th>
+        <th class="right" title="huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo">Huihui-Ornith</th><th class="right" title="Qwen/Qwen3.6-35B-A3B-Turbo">Qwen3.6-35B</th><th class="right" title="d3-flash">d3-flash</th><th class="right" title="Qwen/Qwen3-Embedding-0.6B">Qwen3-Embedding</th><th class="right" title="google/gemma-4-31B-it">gemma-4-31B</th></tr></thead>
+      <tbody>
+        <tr><td>TiinyOS</td><td class="right num">9,870,200</td><td class="right num">68%</td><td class="right num">6,410,000</td><td class="right num">3,160,200</td><td class="right num">0</td><td class="right num">0</td><td class="right num">300,000</td></tr>
+        <tr><td>default</td><td class="right num">4,745,700</td><td class="right num">32%</td><td class="right num">1,554,500</td><td class="right num">1,184,800</td><td class="right num">1,540,600</td><td class="right num">363,800</td><td class="right num">102,000</td></tr>
+      </tbody>
+      <tfoot><tr><td>2 apps</td><td class="right num">14,615,900</td><td class="right num">100%</td><td class="right num">7,964,500</td><td class="right num">4,345,000</td><td class="right num">1,540,600</td><td class="right num">363,800</td><td class="right num">402,000</td></tr></tfoot>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-usage-states">
+    <div class="sec-head"><h2 id="h-usage-states">Other states</h2><span class="note">design preview (not part of the window)</span></div>
+    <table>
+      <thead><tr><th>State</th><th>What the tab shows in place of the chart and tables</th></tr></thead>
+      <tbody>
+        <tr><td>Empty week</td><td>No usage recorded for the week of 2026-11-02. The device keeps per-day counts; pick another week.</td></tr>
+        <tr><td>Read failed</td><td class="bad">HTTP 502 from /api/v1/statistics/week_usage — the device answers 502 until the TiinyOS app reconnects. Showing the 16:41:00 reading.</td></tr>
+        <tr><td>Loading a week</td><td>Previous chart and tables stay at reduced opacity; the week label updates first; no layout shift.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<!-- ============================ POWER ============================ -->
+<div role="tabpanel" id="p-power" aria-labelledby="tab-power" hidden>
+
+  <section aria-labelledby="h-ret" class="panel">
+    <h2 id="h-ret">When power returns</h2>
+    <div class="cols">
+      <div class="switchrow">
+        <label class="tgt" for="ac"><input type="checkbox" role="switch" id="ac" aria-describedby="ac-help"></label>
+        <label for="ac">Power on automatically</label>
+        <span class="note">Off · device setting</span>
+        <span class="help" id="ac-help">Device setting (AC power). Off: after a power cut the Pocket stays off until its button is pressed. Takes effect at the next cut.</span>
+      </div>
+      <fieldset>
+        <legend>Reload missing models from this PC</legend>
+        <div class="opt"><label class="tgt" for="r0"><input type="radio" name="restore" id="r0"></label><label for="r0">Nothing</label></div>
+        <div class="opt"><label class="tgt" for="r1"><input type="radio" name="restore" id="r1" checked aria-describedby="r1-help"></label><label for="r1">Models marked Keep loaded (4)</label>
+          <span class="help" id="r1-help">Only the ones not in memory when the device answers again, in the order they were last loaded. A model that no longer fits the NPU memory is reported, never forced in.</span></div>
+        <div class="opt"><label class="tgt" for="r2"><input type="radio" name="restore" id="r2" aria-describedby="r2-help"></label><label for="r2">Everything that was in memory (3 at the last reading)</label>
+          <span class="help" id="r2-help">Uses the last reading before the outage.</span></div>
+      </fieldset>
+    </div>
+    <p class="note">The device may bring a model back on its own after a restart (seen today: a chat model was in memory when it answered again). The restore never unloads what the device brought back; it loads what is missing, and needs this app open.</p>
+  </section>
+
+  <section aria-labelledby="h-restore">
+      <div class="sec-head"><h2 id="h-restore">Restore in progress</h2><span class="note">started <span class="num">16:32:05</span> · after the <span class="num">16:31</span> outage · policy Keep loaded</span><span class="spacer"></span><button type="button">Stop</button></div>
+      <table>
+        <thead><tr><th>Model</th><th class="right">Size</th><th>State</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="name">Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo</td><td class="right num">16.3 GB</td><td><span class="st ok">Already in memory</span> <span class="note">brought back by the device at <span class="num">16:32:01</span></span></td><td></td></tr>
+          <tr><td class="name">AceStep-XL-Turbo</td><td class="right num">12.1 GB</td><td><span class="st warn">Loading</span> <span class="meter" aria-hidden="true"><i style="width:40%"></i></span><span class="num">40%</span> · started <span class="num">16:33:10</span></td><td></td></tr>
+          <tr><td class="name">Qwen3-Embedding-0.6B</td><td class="right num">0.9 GB</td><td><span class="st idle">Queued</span></td><td class="right"><button type="button">Skip</button></td></tr>
+          <tr><td class="name">gemma-4-31B-it</td><td class="right num">16.5 GB</td><td><span class="st warn">Not restored</span> <span class="note">needs 16.5 GB, 6.8 GB free after the others</span></td><td class="right"><button type="button">Load anyway</button></td></tr>
+        </tbody>
+      </table>
+      <p class="note">Floating Ball and tray show the same line as the strip: “Restoring AceStep-XL-Turbo · 40% · 1 request in flight”.</p>
+    </section>
+
+  <section aria-labelledby="h-out">
+    <div class="sec-head"><h2 id="h-out">Outages seen from this PC</h2><span class="note">last 30 days · an outage = the device stopped answering and the USB link dropped, then it answered again</span><span class="spacer"></span><span class="note">4 today</span></div>
+    <div class="advice" role="status">
+      <strong>Unreliable power.</strong> 4 cuts today, 14 to 48 minutes apart. Each time the USB link dropped, the device answered again after 44 to 57 s with one model in memory, and this PC reloaded the others (about 3 min).
+      Use the wall adapter: a power bank that stops under low draw cuts the Pocket mid-generation. A generation in progress is lost; a download or update continues from this window when the device is back.
+    </div>
+    <table>
+      <thead><tr><th>Stopped answering</th><th>Answered again</th><th class="right">No answer for</th><th class="right">In memory before</th><th class="right">Back on its own</th><th>Restore</th></tr></thead>
+      <tbody>
+        <tr><td class="num">today 16:31:12</td><td class="num">16:32:01</td><td class="right num">49 s</td><td class="right num">3</td><td class="right num">1</td><td><span class="st warn">In progress</span> 1 of 3</td></tr>
+        <tr><td class="num">today 15:57:30</td><td class="num">15:58:14</td><td class="right num">44 s</td><td class="right num">3</td><td class="right num">1</td><td><span class="st ok">Restored</span> 2 of 2 · <span class="num">3 min 10 s</span></td></tr>
+        <tr><td class="num">today 15:43:05</td><td class="num">15:44:02</td><td class="right num">57 s</td><td class="right num">3</td><td class="right num">1</td><td><span class="st ok">Restored</span> 2 of 2 · <span class="num">3 min 02 s</span></td></tr>
+        <tr><td class="num">today 13:47:51</td><td class="num">13:48:40</td><td class="right num">49 s</td><td class="right num">2</td><td class="right num">0</td><td><span class="st warn">Partial</span> 1 of 2 · d3 did not fit</td></tr>
+        <tr><td class="num">2026-11-12 09:12:20</td><td class="num">09:13:05</td><td class="right num">45 s</td><td class="right num">2</td><td class="right num">1</td><td><span class="st idle">Off</span> · policy was Nothing</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Only cuts while this app was running are listed. A device switched off on purpose from this window or the Control Panel is not counted. A pause with the USB link still up (the device busy with a long render) is not an outage.</p>
+  </section>
+
+</div>
+
+</main>
+
+<!-- ============================ DIALOGS ============================ -->
+<dialog id="dlg-update" aria-labelledby="dlg-update-h">
+  <form method="dialog">
+    <h2 id="dlg-update-h">Update Qwen3.6-35B-A3B-Turbo to the 2026-11-19 release?</h2>
+    <p>Installed: 2026-11-09. Tiiny ships the update as a new model: the old one is deleted first, then 16.5 GB are downloaded.</p>
+    <blockquote>Audio URL input for the API — “This update adds support for audio URL input to the API. To apply it, you'll need to delete the old model and download the new one.”</blockquote>
+    <ol class="steps">
+      <li>Unload (it is not in memory now: skipped)</li>
+      <li>Delete the 2026-11-09 release from the device</li>
+      <li>Download the 2026-11-19 release · 16.5 GB · about 25 min on this link</li>
+      <li>Reload (skipped: it was not in memory)</li>
+    </ol>
+    <p class="warn" style="margin-top:var(--sp-3)">The model is unusable for about 25 minutes. Prefer wall power: 4 power cuts today. A cut during the download leaves no copy on the device; the download resumes when the device is back, and this window shows where it stopped.</p>
+    <div class="actions">
+      <button type="submit" value="cancel">Cancel</button>
+      <button type="submit" value="ok" class="primary">Update</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-update-all" aria-labelledby="dlg-ua-h">
+  <form method="dialog">
+    <h2 id="dlg-ua-h">Update 2 models, one after the other?</h2>
+    <p>Queue: Qwen3.6-35B-A3B-Turbo 2026-11-19 (16.5 GB), then d3-flash 2026-11-17 (9.3 GB). About 40 minutes in total; each model is unusable only during its own step.</p>
+    <p class="warn">Prefer wall power. A cut pauses the queue; it continues from the same step when the device is back.</p>
+    <div class="actions">
+      <button type="submit" value="cancel">Cancel</button>
+      <button type="submit" value="ok" class="primary">Update all</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  /* tabs: click + arrow keys; panels toggled by hidden */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  function select(tab) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    tab.focus();
+    if (tab.id === 'tab-usage') drawChart();
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { select(t); });
+    t.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') select(tabs[(i + 1) % tabs.length]);
+      if (e.key === 'ArrowLeft') select(tabs[(i - 1 + tabs.length) % tabs.length]);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
+    b.addEventListener('click', function () { select(document.getElementById(b.getAttribute('data-tab'))); });
+  });
+  /* dialogs (static preview of the confirmation) */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-dialog]'), function (b) {
+    b.addEventListener('click', function () { document.getElementById(b.getAttribute('data-dialog')).showModal(); });
+  });
+  /* theme: system -> light -> dark */
+  var order = ['system', 'light', 'dark'], cur = 0, btn = document.getElementById('theme');
+  btn.addEventListener('click', function () {
+    cur = (cur + 1) % order.length;
+    if (order[cur] === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', order[cur]);
+    btn.textContent = 'Theme: ' + order[cur];
+    btn.setAttribute('aria-label', 'Theme: ' + order[cur] + '. Press to change');
+  });
+
+  /* ---- usage chart: one data object feeds the SVG, the legend and the table view ----
+     Shape mirrors GET /api/v1/statistics/week_usage?start_date=2026-11-16:
+     { "YYYY-MM-DD": { "<model id>": { prompt_tokens, completion_tokens, total_tokens, request_count } } } */
+  var SERIES = [ /* fixed order = first time the model was seen in usage; the slot never changes */
+    { id: 'huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo', name: 'Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo', slot: 1 },
+    { id: 'Qwen/Qwen3.6-35B-A3B-Turbo', name: 'Qwen3.6-35B-A3B-Turbo', slot: 2 },
+    { id: 'd3-flash', name: 'd3-flash', slot: 3 },
+    { id: 'Qwen/Qwen3-Embedding-0.6B', name: 'Qwen3-Embedding-0.6B', slot: 4 },
+    { id: 'google/gemma-4-31B-it', name: 'gemma-4-31B-it', slot: 5 }
+  ];
+  var WEEK = {
+    '2026-11-16': { 'huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo': 2104500, 'Qwen/Qwen3.6-35B-A3B-Turbo': 1320000, 'd3-flash': 410200, 'Qwen/Qwen3-Embedding-0.6B': 95300 },
+    '2026-11-17': { 'huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo': 2480000, 'Qwen/Qwen3.6-35B-A3B-Turbo': 980000, 'd3-flash': 512400, 'Qwen/Qwen3-Embedding-0.6B': 120100, 'google/gemma-4-31B-it': 310000 },
+    '2026-11-18': { 'huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo': 1760000, 'Qwen/Qwen3.6-35B-A3B-Turbo': 1105000, 'd3-flash': 288000, 'Qwen/Qwen3-Embedding-0.6B': 60400 },
+    '2026-11-19': { 'huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo': 1620000, 'Qwen/Qwen3.6-35B-A3B-Turbo': 940000, 'd3-flash': 330000, 'Qwen/Qwen3-Embedding-0.6B': 88000, 'google/gemma-4-31B-it': 92000 },
+    '2026-11-20': {}, '2026-11-21': {}, '2026-11-22': {}
+  };
+  var TODAY = '2026-11-19';
+  var DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function compact(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n); }
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  var drawn = false;
+  function drawChart() {
+    var svg = document.getElementById('chart');
+    var W = svg.clientWidth, H = svg.clientHeight;
+    if (!W) return;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var padL = 44, padR = 8, padT = 20, padB = 24, BAR = 24, GAP = 2;
+    var days = Object.keys(WEEK);
+    var totals = days.map(function (d) { return SERIES.reduce(function (s, m) { return s + (WEEK[d][m.id] || 0); }, 0); });
+    var maxT = Math.max.apply(null, totals), step = 1e6, top = Math.max(step, Math.ceil(maxT / step) * step);
+    var plotH = H - padT - padB, plotW = W - padL - padR, slot = plotW / days.length;
+    var y = function (v) { return padT + plotH - (v / top) * plotH; };
+    for (var v = 0; v <= top; v += step) {
+      svg.appendChild(el('line', { 'class': v === 0 ? 'axis' : 'grid', x1: padL, x2: W - padR, y1: y(v), y2: y(v) }));
+      svg.appendChild(el('text', { x: padL - 6, y: y(v) + 4, 'text-anchor': 'end' }, v === 0 ? '0' : compact(v)));
+    }
+    days.forEach(function (d, i) {
+      var x = padL + slot * i + slot / 2 - BAR / 2, acc = 0, tipLines = [DOW[i] + ' ' + d + ' · ' + fmt(totals[i]) + ' tokens'];
+      var g = el('g', { 'class': 'col', tabindex: '0', role: 'img' });
+      var segs = SERIES.filter(function (m) { return (WEEK[d][m.id] || 0) > 0; });
+      segs.forEach(function (m, j) {
+        var val = WEEK[d][m.id], y1 = y(acc + val), y0 = y(acc), h = y0 - y1;
+        tipLines.push(m.name + ' · ' + fmt(val));
+        var isTop = j === segs.length - 1, r = Math.min(4, h / 2);
+        if (isTop && h > 4) {
+          var path = 'M' + x + ' ' + y0 + ' V' + (y1 + r) + ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' -' + r + ' H' + (x + BAR - r) + ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' ' + r + ' V' + y0 + ' Z';
+          g.appendChild(el('path', { 'class': 'seg', d: path, style: 'fill:var(--series-' + m.slot + ')' }));
+        } else {
+          g.appendChild(el('rect', { 'class': 'seg', x: x, y: y1, width: BAR, height: Math.max(h, 0), style: 'fill:var(--series-' + m.slot + ')' }));
+        }
+        acc += val;
+      });
+      if (totals[i] > 0) svg.appendChild(el('text', { 'class': 'cap', x: x + BAR / 2, y: y(totals[i]) - 6, 'text-anchor': 'middle' }, compact(totals[i])));
+      g.setAttribute('data-top', y(totals[i]) - 20);
+      var label = DOW[i] + ' ' + d.slice(8);
+      svg.appendChild(el('text', { x: x + BAR / 2, y: H - 6, 'text-anchor': 'middle' }, d === TODAY ? label + ' · today' : label));
+      g.insertBefore(el('rect', { 'class': 'hit', x: padL + slot * i, y: padT, width: slot, height: plotH }), g.firstChild);
+      var tip = tipLines.join('\n');
+      g.setAttribute('aria-label', totals[i] ? tip.replace(/\n/g, '; ') : DOW[i] + ' ' + d + ' · no usage');
+      g.appendChild(el('title', {}, tip));
+      g.addEventListener('mouseenter', function () { showTip(g, tip, totals[i]); });
+      g.addEventListener('focus', function () { showTip(g, tip, totals[i]); });
+      g.addEventListener('mouseleave', hideTip);
+      g.addEventListener('blur', hideTip);
+      svg.appendChild(g);
+    });
+    if (!drawn) { drawLegend(); drawTable(days, totals); drawn = true; }
+  }
+  var ctip = document.getElementById('ctip');
+  function showTip(g, text, total) {
+    if (!total) { hideTip(); return; }
+    var fig = g.ownerSVGElement.parentNode, r = g.querySelector('.hit').getBoundingClientRect(), fr = fig.getBoundingClientRect();
+    ctip.textContent = text;
+    ctip.className = 'ctip on';
+    var left = r.left - fr.left + r.width / 2 - ctip.offsetWidth / 2;
+    ctip.style.left = Math.max(0, Math.min(left, fr.width - ctip.offsetWidth)) + 'px';
+    var svgTop = g.ownerSVGElement.getBoundingClientRect().top - fr.top;
+    ctip.style.top = Math.max(0, svgTop + (+g.getAttribute('data-top')) - ctip.offsetHeight) + 'px';
+  }
+  function hideTip() { ctip.className = 'ctip'; }
+  function drawLegend() {
+    var lg = document.getElementById('legend');
+    SERIES.forEach(function (m) {
+      var s = document.createElement('span');
+      var sw = document.createElement('i'); sw.className = 'sw'; sw.setAttribute('aria-hidden', 'true'); sw.style.background = 'var(--series-' + m.slot + ')';
+      s.appendChild(sw); s.appendChild(document.createTextNode(m.name));
+      lg.appendChild(s);
+    });
+  }
+  function drawTable(days, totals) {
+    var t = document.getElementById('byday'), h = '<thead><tr><th>Day</th>';
+    SERIES.forEach(function (m) { h += '<th class="right">' + m.name + '</th>'; });
+    h += '<th class="right">Total</th></tr></thead><tbody>';
+    days.forEach(function (d, i) {
+      h += '<tr><td class="num">' + DOW[i] + ' ' + d + '</td>';
+      SERIES.forEach(function (m) { h += '<td class="right num">' + fmt(WEEK[d][m.id] || 0) + '</td>'; });
+      h += '<td class="right num">' + fmt(totals[i]) + '</td></tr>';
+    });
+    h += '</tbody>';
+    t.insertAdjacentHTML('beforeend', h);
+  }
+  window.addEventListener('resize', function () { if (!document.getElementById('p-usage').hidden) drawChart(); });
+})();
+</script>
+</body>
+</html>
