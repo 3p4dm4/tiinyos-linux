@@ -34,8 +34,9 @@ def semver(v):
 
 
 # handlers are registered either directly or through a re-wiring helper
-# (m3_care.js: once('<ch>')(...)); only m3:* literals count as channels
-HANDLER = re.compile(r"""(?:ipcMain\.handle|once)\(\s*['"](m3:[^'"]+)['"]""")
+# (m3_care.js: once('<ch>')(...)), on ipcMain or an injected stub (bus.handle);
+# only m3:* literals count as channels
+HANDLER = re.compile(r"""(?:\.handle|\bonce)\(\s*['"](m3:[^'"]+)['"]""")
 
 
 class ManifestCase(unittest.TestCase):
@@ -132,6 +133,34 @@ class ManifestCase(unittest.TestCase):
                 stray = sorted(c for c in seen if not c.startswith(prefix) and c not in legacy)
                 self.assertEqual(stray, [], f"channels outside {prefix}* and ipc.legacy")
 
+
+    def test_examples_follow_the_same_rules(self):
+        """examples/<id>/ is the copy-me reference: schema, file names, its own
+        files present and its handlers under its prefix (not installed, so the
+        install.sh / registry checks do not apply)."""
+        try:
+            import jsonschema
+        except ImportError:
+            jsonschema = None
+        found = sorted(glob.glob(os.path.join(ROOT, "examples", "*", "*.tool.json")))
+        self.assertTrue(found, "no example manifest")
+        for path in found:
+            m = json.loads(read(path))
+            base = os.path.dirname(path)
+            with self.subTest(example=os.path.relpath(path, ROOT)):
+                if jsonschema:
+                    jsonschema.Draft202012Validator(self.schema).validate(m)
+                self.assertEqual(os.path.basename(path), m["id"] + ".tool.json")
+                for f in m["main"]["files"] + m["renderer"]["files"]:
+                    self.assertTrue(os.path.isfile(os.path.join(base, f)), f)
+                for d in m["renderer"].get("dirs", []):
+                    self.assertTrue(os.path.isdir(os.path.join(base, d)), d)
+                seen = set()
+                for f in m["main"]["files"]:
+                    seen.update(HANDLER.findall(read(os.path.join(base, f))))
+                prefix = m["ipc"]["prefix"] + ":"
+                self.assertTrue(seen)
+                self.assertEqual(sorted(c for c in seen if not c.startswith(prefix)), [])
 
 if __name__ == "__main__":
     unittest.main()
