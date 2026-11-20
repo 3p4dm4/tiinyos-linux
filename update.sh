@@ -41,21 +41,25 @@ was_running=0
 pgrep -f "$CLONE/electron/tiinyos" >/dev/null 2>&1 && was_running=1
 
 OLD="$(git -C "$HERE" rev-parse HEAD)"
+OLDV="$(cat "$HERE/VERSION" 2>/dev/null || echo unknown)"
 BR="$(git -C "$HERE" rev-parse --abbrev-ref HEAD)"
 if [[ $DRY == 1 ]]; then
   say "dry-run: fetch only, no changes"
   git -C "$HERE" fetch --quiet
   NEW="$(git -C "$HERE" rev-parse "origin/$BR")"
+  NEWV="$(git -C "$HERE" show "origin/$BR:VERSION" 2>/dev/null || echo unknown)"
 else
   say "pulling $HERE ..."
   git -C "$HERE" pull --ff-only
   NEW="$(git -C "$HERE" rev-parse HEAD)"
+  NEWV="$(cat "$HERE/VERSION" 2>/dev/null || echo unknown)"
 fi
 
 if [[ "$NEW" == "$OLD" ]]; then
   say "already up to date (${NEW:0:7})"; exit 0
 fi
 
+say "version $OLDV → $NEWV (${OLD:0:7} → ${NEW:0:7})"
 say "re-applying install.sh to $CLONE ..."
 run "$HERE/install.sh" --clone-dir "$CLONE"
 
