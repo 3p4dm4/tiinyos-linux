@@ -11,9 +11,11 @@ contextBridge.exposeInMainWorld('m3', {
     if (!ours(channel)) return Promise.reject(new Error(`channel not allowed: ${channel}`));
     return ipcRenderer.invoke(channel, ...args);
   },
-  // main→renderer events
+  // main→renderer events; returns an unsubscribe function
   on: (channel, cb) => {
     if (!ours(channel)) throw new Error(`channel not allowed: ${channel}`);
-    ipcRenderer.on(channel, (_e, payload) => cb(payload));
+    const listener = (_e, payload) => cb(payload);
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
   },
 });

@@ -8,15 +8,24 @@ Two anchors:
    the poller can push the busy/idle badge into it via executeJavaScript.
 
 Idempotent; fails loudly if an anchor is not unique (bundle drifted upstream).
-Requires patch_ball_click.py to have run first (anchor #2 is its output)."""
+Requires patch_ball_click.py to have run first (anchor #2 is its output).
+
+The tray anchor also carries an env-gated test hook: with M3_OPEN_DEVICE set,
+the Device (Performance) window opens itself at startup so the end-to-end
+test can exercise the m3:care:* IPC from the renderer (tests/e2e/). No
+behaviour change when the variable is unset. The care engine itself starts
+from m3_activity (present in every installed bundle), not from this patch.
+"""
 import sys
 
 F = sys.argv[1] if len(sys.argv) > 1 else "out/main/index.js"
 PAIRS = [
     ('this.tray.setToolTip("TiinyOS")',
      'this.tray.setToolTip("TiinyOS"),globalThis.__m3Tray=this.tray,'
-     'setTimeout(()=>{try{require("./m3_activity").start(globalThis.__m3Tray)}'
-     'catch(e){console.error("[M3] activity:",e)}},4000)'),
+     'setTimeout(()=>{try{require("./m3_activity").start(globalThis.__m3Tray);}'
+     'catch(e){console.error("[M3] activity:",e)}},4000),'
+     'process.env.M3_OPEN_DEVICE&&setTimeout(()=>{try{require("./m3_performance").open();}'
+     'catch(e){console.error("[M3] open device window:",e)}},5000)'),
     ('("linux"===process.platform?require("./m3_ballshape").apply(t,!0):t.setIgnoreMouseEvents(!0,{forward:!0}))',
      '("linux"===process.platform?require("./m3_ballshape").apply(t,!0):t.setIgnoreMouseEvents(!0,{forward:!0})),'
      'globalThis.__m3Ball=t'),

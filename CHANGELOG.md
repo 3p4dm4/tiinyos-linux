@@ -21,6 +21,33 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   `tests/js/m3_lock.test.js`.
 - **"Tiiny Device" desktop entry** (`install.sh`), pointing at the standalone launcher; removed on
   `--uninstall`.
+- **Device care engine** (`src/m3_care.js`, `src/m3_care_store.js`, `src/m3_models.js`):
+  the background engine behind the Device window. A 5 s poller tracks device reach;
+  a power cut is recorded with what was in memory when the link dropped and what came
+  back, then the kept models are reloaded per policy (`off` / `kept` / `all`) once the
+  device is up again — the device boots with nothing in memory, so without this the
+  models silently disappear. Updates are journal-driven (`unload → delete → download →
+  reload`, journal written before each step) so they resume after a power cut or an
+  app restart, one model at a time (`updateAll` queues); `ac_power` gates the eager
+  behaviour; per-model and app usage and a 7-day activity log are exposed. State
+  (`care.json`, `care-journal.json`, `care-log.jsonl`) lives under
+  `~/.config/tiinyos-linux/` with atomic writes.
+- The full `m3:care:*` IPC contract of `docs/design/device-contract.md` v0.4.0 on the
+  Device window, plus one `m3:care:changed` push (at most one per second) carrying the
+  CareState.
+- The engine starts with the activity indicator — the one injection point every
+  installed bundle has — so upgrading an existing install gets it without reopening
+  the Device window; while a care task runs, the tray tooltip and the ball dot follow
+  the task ("restoring…", "updating General 7B · step 3/4") instead of the raw signals.
+- End-to-end test (`tests/e2e/run_e2e.sh`): fresh clone from the CDN → `install.sh` →
+  the *shipped* asar runs inside a real Electron against the fake pocket and every
+  flow is driven through the real preload bridge — reach, load/unload, policy/keep,
+  restore after a power cut, an update that bumps the device version, a power cut
+  mid-download that resumes from the journal, `updateAll`, fit refusal (the device's
+  own "insufficient NPU" reaches the renderer), `ac_power`, usage, the log and the
+  state files on disk — then `--uninstall` restores the pristine asar byte-identically.
+- Fake-pocket control driver (`tests/fake_pocket_ctl.py`): cut and restore the device
+  power and switch scenarios mid-test, so outage and resume paths are testable.
 - Fake Tiiny Pocket for tests (`tests/fake_pocket.py`, stdlib only): a scriptable
   device on loopback with scenarios (normal, slow_load, npu_full, power_cut,
   update_available) and simulated time; `src/m3_device.js` base URL is now
@@ -31,9 +58,14 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   (`update.sh` shows `old → new`). Releases are tagged `vX.Y.Z` on GitHub.
 
 ### Changed
-- Tray menu item "Performance" is now "Device" (the window becomes the Device window).
+- Tray menu item "Performance" is now "Device", and the Performance window is now the Device
+  window: four tabs (Status, Models, Usage, Power), a persistent strip with device reach, the
+  running request and the running task, light and dark themes; every care view shows "not
+  available" when the engine cannot answer. Benchmark stays in Status and Models.
 - `install.sh --uninstall` keeps your settings in `~/.config/tiinyos-linux`; the new `--purge` also
   removes them (restore policy, kept models, activity log, update journal, standalone profiles).
+- `install.sh` now ships the care-engine modules next to the window files, and
+  `src/m3_device.js` gained a JSON `DELETE` verb (the update flow needs it).
 
 ### Fixed
 - The preload bridge passed `invoke` on any IPC channel; it now allows only `m3:*`, both ways,

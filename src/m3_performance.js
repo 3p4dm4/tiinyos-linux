@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { BASE, P8800, jget } = require('./m3_device');
 const { runBenchmark } = require('./m3_bench');
+const care = require('./m3_care'); // engine starts app-wide (also from the tray patch); wire per window
 
 let win = null;
 
@@ -22,6 +23,7 @@ function htmlPath() {
 }
 
 function open() {
+  care.start(); // idempotent; also started from the vendor tray patch at boot
   if (win && !win.isDestroyed()) { win.show(); win.focus(); return; }
   win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 800, minHeight: 500,
@@ -37,6 +39,7 @@ function open() {
   win.setMenuBarVisibility(false);
   win.loadFile(htmlPath());
   win.on('closed', () => { win = null; });
+  care.wire(win); // re-wires IPC and the m3:care:changed push for this window
 }
 
 let ipcWired = false;
