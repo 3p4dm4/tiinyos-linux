@@ -14,6 +14,10 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   device names the app uses, where it resolves (`/etc/hosts` or DNS) and the HTTP answer of a
   plain `GET /` (no key sent), with one verdict and one remedy per name, and the exact
   `/etc/hosts` line for the names that are missing or point elsewhere, with a Copy button.
+- **Example tool `hello`** (`examples/hello/`): a schema-valid manifest, a module with
+  `open`/`wire(ipc)`/`attach` and lazy Electron, one IPC prefix (`m3:hello:*`), a page on the shared
+  tokens and a node test against the fake device. Not installed, not in the tray, not in
+  `standalone/tools.json` — it is the copy-me reference for a new tool (see its README).
 - **Tool manifests** (`src/<id>.tool.json`, schema `docs/framework/tool.schema.json`): each tool
   declares its files, IPC prefix, standalone window, tray hook, device endpoints and PC state;
   `tests/test_manifests.py` checks it against the schema, `install.sh`, `tools/patch_main.py`,

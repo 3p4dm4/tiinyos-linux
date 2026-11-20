@@ -54,9 +54,9 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: JS syntax gate (src/m3_* + standalone)
+      - name: JS syntax gate (src/m3_* + standalone + examples)
         run: |
-          for f in src/*.js standalone/*.js; do node --check "$f"; done
+          for f in src/*.js standalone/*.js examples/hello/*.js examples/hello/m3hello/*.js; do node --check "$f"; done
       - name: pcsvr-rs (Linux PC service) — clippy + tests, leak test included
         working-directory: pcsvr-rs
         run: |
@@ -66,7 +66,7 @@ jobs:
         run: |
           # node:test suites; some spawn tests/fake_pocket.py (Python is set up above)
           if compgen -G 'tests/js/*.test.js' >/dev/null; then
-            node --test tests/js/*.test.js
+            node --test tests/js/*.test.js examples/hello/hello.test.js
           fi
       - name: secrets scan (fail-closed)
         run: bash tools/check_secrets.sh
