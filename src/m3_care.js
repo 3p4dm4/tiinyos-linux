@@ -648,6 +648,7 @@ function start(opts = {}) {
     S.timer = setInterval(() => { pollOnce().catch(() => {}); }, pm);
     if (S.timer.unref) S.timer.unref(); // never hold the process open in tests
     pollOnce().catch(() => {}); // first read right away
+    console.log('[M3] care engine started (poll every ' + (pm / 1000) + ' s)');
   }
   return S;
 }
@@ -727,14 +728,8 @@ function wire(win) {
     await ensureUnloaded(id);
     return { ok: true };
   });
-  once('m3:care:update')(async (_e, arg) => {
-    const t = await update(String((arg && arg.id) || ''));
-    return { taskId: t.id };
-  });
-  once('m3:care:updateAll')(async () => {
-    const t = await updateAll();
-    return { taskIds: t.map((x) => x.id) };
-  });
+  once('m3:care:update')(async (_e, arg) => update(String((arg && arg.id) || '')));
+  once('m3:care:updateAll')(() => updateAll());
   once('m3:care:stopTask')((_e, arg) => {
     const id = String((arg && (arg.taskId != null ? arg.taskId : arg.id)) || '');
     return { ok: stopTask(id) };

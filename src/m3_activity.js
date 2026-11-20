@@ -110,6 +110,10 @@ async function tick(tray) {
 function start(tray) {
   if (started) return;
   started = true;
+  // The care engine runs app-wide (outage detection, restore, updates)
+  // whether or not the Device window ever opens: it starts here, from the
+  // one injection point every installed bundle has. Idempotent.
+  try { m3care.start(); } catch (e) { console.error('[M3] care engine:', e); }
   tick(tray);
   setInterval(() => tick(tray), 5000);
   console.log('[M3] activity indicator started');

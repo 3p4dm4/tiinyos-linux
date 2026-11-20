@@ -200,6 +200,36 @@ test('wire: contract handlers (state, models, log, setPolicy, keep, setAcPower, 
   // stopTask: unknown id is a no-op, not an error
   assert.deepStrictEqual(await call('m3:care:stopTask', { taskId: 'nope' }), { ok: false });
 
+  // update / updateAll: exact contract shapes ({taskId} / {taskIds})
+  await assert.rejects(() => call('m3:care:update', { id: C }),
+    /up to date/, 'normal scenario: nothing to update');
+  assert.deepStrictEqual(await call('m3:care:updateAll'), { taskIds: [] });
+
+  ctl.stop();
+});
+
+test('wire: update handler returns {taskId} and the task runs to completion', async () => {
+  const ctl = await spawnCtl('update_available');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'care-w4-')); dirs.push(dir);
+  const care = freshCare(ctl.base);
+  care.start({ baseDir: dir, pollMs: 0, outageMs: 300, loadPollMs: 100 });
+  await care._pollOnce();
+  care.wire(fakeWin());
+  const call = (ch, arg) => handlers.get(ch)({ sender: null }, arg);
+
+  const { taskId } = await call('m3:care:update', { id: C });
+  assert.ok(taskId, 'a taskId came back');
+  const t0 = Date.now();
+  for (;;) { // speed 2: unload+delete+download+reload finishes in ~5 s
+    const st = await call('m3:care:state');
+    const task = st.tasks.find((t) => t.id === taskId);
+    if (!task || task.state === 'done') break;
+    assert.notEqual(task.state, 'failed', 'update task failed');
+    assert.ok(Date.now() - t0 < 20000, 'update did not finish in time');
+    await sleep(500);
+  }
+  const state = await ctl.send({ op: 'state' });
+  assert.equal(state.models[C].version, '1.4.0', 'the device really updated');
   ctl.stop();
 });
 
