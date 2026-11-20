@@ -17,10 +17,9 @@
 window.M3 = window.M3 || {};
 M3.power = (function () {
   var h = M3.h;
-  var last = { care: null };
+  var last = { care: null, store: null };
   var built = false;
   var R = {};
-  var DEF = { acPower: false, reload: 'kept', kept: [], lastInMemory: 0, restore: null, outages: [] };
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function fire(ch, args, revert) {
@@ -126,29 +125,16 @@ M3.power = (function () {
   }
   function thead(cols) { var t = el('thead'), tr = document.createElement('tr'); cols.forEach(function (c) { var th = el('th', c.right ? 'right' : ''); th.textContent = c.t; tr.appendChild(th); }); t.appendChild(tr); return t; }
 
-  /* ---------- which engine fields are present ---------- */
-  function power() {
-    var c = last.care || {};
-    var available = !!last.care && (c.acPower != null || c.reload != null || c.kept != null);
-    return {
-      available: available,
-      acPower: c.acPower != null ? c.acPower : DEF.acPower,
-      reload: c.reload || DEF.reload,
-      kept: c.kept || [],
-      lastInMemory: c.lastInMemory != null ? c.lastInMemory : 0,
-      restore: c.restore || null,
-      outages: c.outages || [],
-      models: c.models || []
-    };
-  }
+  /* ---------- the contract's CareState -> this view (helpers.powerView) ---------- */
+  function power() { return h.powerView(last.care, last.store); }
   function keptSet() { var s = {}; power().kept.forEach(function (id) { s[id] = 1; }); return s; }
 
   /* ---------- render ---------- */
   function renderControls() {
     var pw = power();
     var en = pw.available;
-    R.ac.checked = pw.acPower; R.ac.disabled = !en;
-    R.acState.textContent = (pw.acPower ? 'On' : 'Off') + ' · device setting';
+    R.ac.checked = !!pw.acPower; R.ac.disabled = !en || pw.acPower == null;
+    R.acState.textContent = (pw.acPower == null ? 'Unknown' : pw.acPower ? 'On' : 'Off') + ' · device setting';
     R.radios.forEach(function (inp) {
       inp.checked = inp.value === pw.reload;
       inp.disabled = !en;
@@ -255,12 +241,13 @@ M3.power = (function () {
       });
     });
     R.restoreStop.addEventListener('click', function () {
-      var c = last.care || {};
-      var t = (c.tasks || []).filter(function (x) { return x.kind === 'restore'; })[0];
-      if (t) fire('m3:device:stopTask', { taskId: t.id });
+      var r = power().restore;
+      if (r) fire('m3:device:stopTask', { taskId: r.taskId });
     });
     render();
     M3.bus.on('care', function (c) { last.care = c; render(); });
+    M3.bus.on('care-missing', function () { last.care = null; render(); });
+    M3.bus.on('store', function (arr) { last.store = arr; render(); });
   }
 
   return { init: init };

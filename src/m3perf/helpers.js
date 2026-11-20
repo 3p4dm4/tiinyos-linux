@@ -242,6 +242,74 @@
   // (agents and other API clients) are grouped by the device as "default".
   function appLabel(app) { return app === 'default' ? 'API clients (default)' : app; }
 
+  /* ---------- model updates ----------
+   * The device versions models by date (version "20261109"); show 2026-11-09. */
+  function fmtVersion(v) {
+    v = v == null ? '' : String(v);
+    return /^\d{8}$/.test(v) ? v.slice(0, 4) + '-' + v.slice(4, 6) + '-' + v.slice(6) : v;
+  }
+  // The four steps of an update (design: unload, delete, download, reload);
+  // unload and reload only when the model is in memory.
+  function updateSteps(m, inMemory) {
+    return [
+      { text: 'Unload it from memory', skip: !inMemory },
+      { text: 'Delete the installed version from the device', skip: false },
+      { text: 'Download ' + (m.total_size ? fmtBytes(m.total_size) : 'the new version'), skip: false },
+      { text: 'Load it again', skip: !inMemory }
+    ];
+  }
+  function updateQuestion(m) {
+    var name = m.display_name || shortName(m.id);
+    var to = fmtVersion(m.version_label), from = fmtVersion(m.version);
+    return 'Update ' + name + (to ? ' to the ' + to + ' release' : '') + '?' + (from ? ' Installed: ' + from + '.' : '');
+  }
+
+  /* ---------- Power tab view from the contract's CareState ----------
+   * care: CareState (docs/design/device-contract.md) or null when the engine
+   * did not answer; store: the installed models (m3:store array) or null. */
+  var LIVE = { queued: 1, running: 1, waiting: 1 };
+  function restoreOf(o) {
+    var ok = (o.restored || []).length, no = (o.notRestored || []).length;
+    if (!ok && !no) return null;
+    var names = (o.restored || []).map(shortName).concat((o.notRestored || []).map(function (x) { return shortName(x.id) + ' (' + x.reason + ')'; }));
+    return { state: no ? (ok ? 'Partly restored' : 'Not restored') : 'Restored', cls: no ? 'warn' : 'ok', detail: names.join(', ') };
+  }
+  function powerView(care, store) {
+    var c = care || {};
+    var running = (c.running || []).map(function (r) { return r.id; });
+    var snap = (c.lastSnapshot && c.lastSnapshot.ids) || [];
+    var ids = [];
+    function add(id) { if (id && ids.indexOf(id) < 0) ids.push(id); }
+    (store || []).forEach(function (m) { add(m.id); });
+    running.forEach(add); (c.kept || []).forEach(add); snap.forEach(add);
+    var outages = (c.outages || []).map(function (o) {
+      return { stoppedAt: o.lost || 0, answeredAt: o.back || 0,
+        noAnswerSec: o.lost && o.back ? Math.round((o.back - o.lost) / 1000) : null,
+        inMemoryBefore: (o.beforeIds || []).length, backOnItsOwn: (o.backIds || []).length, restore: restoreOf(o) };
+    });
+    var task = (c.tasks || []).filter(function (t) { return t.kind === 'restore' && LIVE[t.state]; })[0] || null;
+    var restore = null;
+    if (task) {
+      var rows = [];
+      var o0 = (c.outages || [])[0] || {};
+      (o0.restored || []).forEach(function (id) { rows.push({ id: id, state: 'Restored', stateCls: 'ok' }); });
+      (o0.notRestored || []).forEach(function (x) { rows.push({ id: x.id, state: 'Not restored', stateCls: 'bad', note: x.reason }); });
+      rows.push({ id: task.label, state: 'Loading', stateCls: 'warn',
+        note: (task.step && task.steps ? task.step + ' of ' + task.steps : '') + (typeof task.progress === 'number' ? ' · ' + Math.round(task.progress * 100) + '%' : '') });
+      restore = { taskId: task.id, startedAt: task.startedAt, policy: (c.policy && c.policy.reload) || '', models: rows };
+    }
+    return {
+      available: !!care,
+      acPower: c.acPower === undefined ? null : c.acPower,
+      reload: (c.policy && c.policy.reload) || 'kept',
+      kept: c.kept || [],
+      lastInMemory: snap.length,
+      restore: restore,
+      outages: outages,
+      models: ids.map(function (id) { return { id: id, inMemory: running.indexOf(id) >= 0 }; })
+    };
+  }
+
   /* ---------- chart series slots (identity, never rank) ----------
    * Fixed order = first time a model is seen in usage; slot 1..8 map to the
    * --series-1..8 tokens. A 9th and later model folds into "Other". */
@@ -353,7 +421,8 @@
     fmtDur: fmtDur, fmtDurApprox: fmtDurApprox, ago: ago,
     addDays: addDays, mondayOf: mondayOf, weekDates: weekDates, weekRange: weekRange,
     usageTotals: usageTotals, usageByModel: usageByModel, usagePerDay: usagePerDay,
-    busiestDay: busiestDay, usageByApp: usageByApp, appLabel: appLabel,
+    busiestDay: busiestDay, usageByApp: usageByApp, appLabel: appLabel, powerView: powerView,
+    fmtVersion: fmtVersion, updateSteps: updateSteps, updateQuestion: updateQuestion,
     seriesSlots: seriesSlots, shortName: shortName, useTags: useTags,
     stripReach: stripReach, requestsLine: requestsLine, topTask: topTask, taskLine: taskLine,
   };

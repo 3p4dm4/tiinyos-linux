@@ -257,3 +257,38 @@ test('stripReach: first paint says Reading; a CareState with an empty pending[] 
   const care = { reach: { state: 'reachable', lastRead: NOW, everyMs: 5000 }, pending: [] };
   assert.equal(H.stripReach(care.reach, NOW, care.firstPaint).word, 'Reachable');
 });
+
+test('fmtVersion shows the device date versions as dates', () => {
+  assert.equal(H.fmtVersion('20261109'), '2026-11-09');
+  assert.equal(H.fmtVersion('1.4.0'), '1.4.0');
+  assert.equal(H.fmtVersion(null), '');
+});
+
+test('updateSteps: unload/reload only for a model in memory; question names both dates', () => {
+  const m = { id: 'tiiny/Qwen3.6-35B-A3B', display_name: 'Qwen3.6-35B-A3B', version: '20261109', version_label: '20261119', total_size: 16.5e9 };
+  assert.deepEqual(H.updateSteps(m, false).map((s) => s.skip), [true, false, false, true]);
+  assert.deepEqual(H.updateSteps(m, true).map((s) => s.skip), [false, false, false, false]);
+  assert.match(H.updateSteps(m, true)[2].text, /^Download 15\.4 GB$/); // fmtBytes is binary (GiB), as everywhere in the window
+  assert.equal(H.updateQuestion(m), 'Update Qwen3.6-35B-A3B to the 2026-11-19 release? Installed: 2026-11-09.');
+});
+
+test('powerView reads the contract CareState (policy.reload, outages, restore task)', () => {
+  const care = {
+    policy: { reload: 'all' }, kept: ['a/k'], acPower: null,
+    running: [{ id: 'a/m' }], lastSnapshot: { t: 1, ids: ['a/m', 'a/k'] },
+    outages: [{ lost: 1000, back: 50000, beforeIds: ['a/m', 'a/k'], backIds: ['a/m'], restored: ['a/k'], notRestored: [] }],
+    tasks: [{ id: 't1', kind: 'restore', label: 'x', state: 'running', step: 1, steps: 2, progress: 0.4, startedAt: 9 }],
+  };
+  const v = H.powerView(care, [{ id: 'a/s' }]);
+  assert.equal(v.available, true);
+  assert.equal(v.reload, 'all');
+  assert.equal(v.acPower, null);
+  assert.equal(v.lastInMemory, 2);
+  assert.deepEqual(v.models.map((m) => [m.id, m.inMemory]), [['a/s', false], ['a/m', true], ['a/k', false]]);
+  const o = v.outages[0];
+  assert.deepEqual([o.stoppedAt, o.answeredAt, o.noAnswerSec, o.inMemoryBefore, o.backOnItsOwn], [1000, 50000, 49, 2, 1]);
+  assert.equal(o.restore.state, 'Restored');
+  assert.equal(v.restore.taskId, 't1');
+  assert.deepEqual(v.restore.models.map((r) => r.state), ['Restored', 'Loading']);
+  assert.equal(H.powerView(null, null).available, false);
+});
