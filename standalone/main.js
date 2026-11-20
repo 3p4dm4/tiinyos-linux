@@ -44,16 +44,18 @@ app.setName('tiiny-' + tool);
 app.setPath('userData', path.join(os.homedir(), '.config', 'tiinyos-linux', 'standalone-' + tool));
 
 if (!app.requestSingleInstanceLock()) {
-  // another instance of THIS tool already runs: focus it and exit.
+  // another instance of THIS tool already runs: it gets 'second-instance' and
+  // comes to the front (below); this one just exits.
+  app.quit();
+} else {
+  // Electron emits 'second-instance' in the instance that HOLDS the lock.
   app.on('second-instance', () => {
     const w = BrowserWindow.getAllWindows()[0];
-    if (!w || w.isDestroyed()) return;   // window not up yet: just exit
+    if (!w || w.isDestroyed()) return;   // window not up yet
     if (w.isMinimized()) w.restore();
     w.show();
     w.focus();
   });
-  app.quit();
-} else {
   app.whenReady().then(() => {
     // The tool's module knows its own window title/icon; we just require it
     // straight from src/ and let it open. Its IPC handlers register on load.
