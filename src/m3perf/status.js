@@ -114,56 +114,31 @@ M3.status = (function () {
     bench.sec.appendChild(benchT);
     p.appendChild(bench.sec);
 
-    // Connection strip, other states (static design preview, not part of the window)
-    var stSec = section('h-states', 'Connection strip, other states');
-    stSec.head.appendChild(el('span', 'note', 'design preview of the strip above when the device is not fresh (not part of the window)'));
-    var preview = el('div', 'preview');
-    preview.appendChild(previewStrip('offline', [
-      stEl('Unreachable', 'bad', 'since 16:31:12 · USB link down · retrying every 5 s · numbers below are from 16:31:07')
-    ], 'Restore will start when the device answers'));
-    preview.appendChild(previewStrip('stale', [
-      stEl('Stale', 'warn', 'last read 16:35:40 (6 min ago) · device answers 502 until the TiinyOS app reconnects')
-    ], null, readNowBtn()));
-    preview.appendChild(previewStrip('', [
-      stEl('Reachable', 'ok', 'last read 16:42:18 · every 5 s')
-    ], 'idle', detailsBtn('tab-models', 'Updating d3-flash · step 3 of 4 · downloading 62% · ~4 min', 62)));
-    stSec.sec.appendChild(preview);
-    p.appendChild(stSec.sec);
+    // Connection check: the device names the app uses, /etc/hosts and one GET each
+    var conn = section('h-conn', 'Connection');
+    conn.head.appendChild(el('span', 'note', 'the 14 device names the TiinyOS app uses: where each resolves, and whether it answers'));
+    conn.head.appendChild(el('span', 'spacer'));
+    var connBtn = el('button', null, 'Check connection'); connBtn.type = 'button'; connBtn.id = 'conn-run';
+    connBtn.addEventListener('click', runCheck);
+    conn.head.appendChild(connBtn);
+    var connSum = el('p', 'note', 'Not checked yet.'); connSum.id = 'conn-sum'; connSum.setAttribute('aria-live', 'polite');
+    conn.sec.appendChild(connSum);
+    var connT = table([{ t: 'Name' }, { t: 'Address' }, { t: 'Answer' }, { t: 'What to do' }], 'h-conn');
+    connT.querySelector('tbody').id = 'conn-rows'; connT.hidden = true;
+    conn.sec.appendChild(connT);
+    var fix = el('div', 'conn-fix'); fix.id = 'conn-fix'; fix.hidden = true;
+    fix.appendChild(el('p', 'note', 'Add this line to /etc/hosts (as root), then check again:'));
+    var line = el('code', 'mono'); line.id = 'conn-line'; fix.appendChild(line);
+    var copy = el('button', null, 'Copy'); copy.type = 'button'; copy.id = 'conn-copy';
+    copy.addEventListener('click', function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(line.textContent).then(function () { copy.textContent = 'Copied'; });
+    });
+    fix.appendChild(copy);
+    conn.sec.appendChild(fix);
+    p.appendChild(conn.sec);
 
     built = true;
     return p;
-  }
-
-  // small builders for the static strip preview
-  function stEl(word, cls, detail) {
-    var s = el('span');
-    s.appendChild(st(word, cls));
-    s.appendChild(document.createTextNode(' · ' + detail));
-    return s;
-  }
-  function previewStrip(cls, leadNodes, tailText, extra) {
-    var strip = el('div', 'strip' + (cls ? ' ' + cls : ''));
-    leadNodes.forEach(function (n) { strip.appendChild(n); });
-    strip.appendChild(el('span', 'spacer'));
-    if (tailText) strip.appendChild(el('span', 'task', tailText));
-    if (extra) {
-      if (Array.isArray(extra)) extra.forEach(function (n) { strip.appendChild(n); });
-      else strip.appendChild(extra);
-    }
-    return strip;
-  }
-  function readNowBtn() { var b = el('button', null, 'Read now'); b.type = 'button'; return b; }
-  function detailsBtn(tab, taskText, meterPct) {
-    var nodes = [];
-    if (taskText) nodes.push(el('span', 'task', taskText));
-    if (meterPct != null) {
-      var m = el('div', 'meter'); m.setAttribute('aria-hidden', 'true');
-      var i = el('i'); i.style.width = meterPct + '%'; m.appendChild(i);
-      nodes.push(m);
-    }
-    var b = el('button', null, 'Details'); b.type = 'button'; b.setAttribute('data-tab', tab);
-    nodes.push(b);
-    return nodes;
   }
 
   function short(msg) { return String(msg || '').replace(/^HTTP \d+ /, '').slice(0, 60); }
@@ -432,6 +407,38 @@ M3.status = (function () {
     });
   }
 
+  /* ---------- connection check (on demand) ---------- */
+  var VERDICT = { ok: ['Answers', 'ok'], 'service-down': ['Service down', 'warn'], 'no-answer': ['No answer', 'bad'],
+    missing: ['Not set', 'bad'], elsewhere: ['Wrong address', 'bad'] };
+  function runCheck() {
+    var btn = document.getElementById('conn-run'), sum = document.getElementById('conn-sum');
+    if (!window.m3 || !window.m3.invoke) { sum.textContent = 'Not available in this build.'; return; }
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true'); sum.textContent = 'Checking 14 names…';
+    window.m3.invoke('m3:device:netcheck').then(renderCheck).catch(function (e) {
+      sum.textContent = 'Check failed: ' + short(e.message || e);
+    }).then(function () { btn.disabled = false; btn.removeAttribute('aria-busy'); });
+  }
+  function renderCheck(r) {
+    var sum = document.getElementById('conn-sum'), rows = document.getElementById('conn-rows');
+    sum.textContent = r.ok + ' of ' + r.total + ' names answer' +
+      (r.deviceIp ? ' · device at ' + r.deviceIp : ' · api.tiiny does not resolve') + ' · checked ' + h.fmtTime(r.readAt);
+    rows.textContent = '';
+    r.hosts.forEach(function (x) {
+      var tr = document.createElement('tr');
+      tr.appendChild(el('td', 'mono', x.host));
+      tr.appendChild(el('td', 'mono', x.address ? x.address + (x.inHosts ? '' : ' (DNS)') : '—'));
+      var v = VERDICT[x.verdict] || [x.verdict, 'idle'];
+      var ans = el('td', 'state'); ans.appendChild(st(v[0] + (x.http ? ' · ' + x.http : ''), v[1])); tr.appendChild(ans);
+      tr.appendChild(el('td', null, x.remedy || ''));
+      rows.appendChild(tr);
+    });
+    rows.parentNode.hidden = false;
+    var fix = document.getElementById('conn-fix');
+    fix.hidden = !r.hostsLine;
+    document.getElementById('conn-line').textContent = r.hostsLine || '';
+    document.getElementById('conn-copy').textContent = 'Copy';
+  }
+
   function init() {
     render();
     M3.bus.on('metrics', function (m) { last.metrics = m; render(); });
@@ -442,5 +449,5 @@ M3.status = (function () {
     setInterval(refreshInmem, 30000);
   }
 
-  return { init: init, _render: render, _last: last };
+  return { init: init, _render: render, _last: last, _renderCheck: renderCheck };
 })();

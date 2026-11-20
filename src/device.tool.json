@@ -11,7 +11,8 @@
       "m3_performance.js",
       "m3_bench.js",
       "m3_care.js",
-      "m3_care_store.js"
+      "m3_care_store.js",
+      "m3_netcheck.js"
     ]
   },
   "renderer": {

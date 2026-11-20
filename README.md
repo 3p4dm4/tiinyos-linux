@@ -22,9 +22,9 @@ Use your Tiiny Pocket from Linux — the official TiinyOS app, patched to run on
 # 1. Download the official bundle + Electron (one time, ~1 GB)
 ~/.local/tiinyos-clone/build_clone.sh
 
-# 2. Point api.tiiny at your device — build_clone.sh prints the line for you
-#    (login fails without it; see docs/network.md)
-echo "<device-ip>  api.tiiny  models.api.tiiny" | sudo tee -a /etc/hosts
+# 2. Point the device names at your Pocket: copy the /etc/hosts lines from
+#    docs/network.md, with your device IP (login fails without them). Later,
+#    Device › Status › Check connection tells you if any name is missing.
 
 # 3. Fetch the community Control Panel (optional)
 ./fetch_control_panel.sh
@@ -119,10 +119,11 @@ hand: `git pull && ./install.sh`.
 
 ## Network
 
-The official client hard-codes `https://api.tiiny` / `models.api.tiiny`.
-The port rewrites both to `http://api.tiiny:8080/v1` (see
-[docs/network.md](docs/network.md) for the full picture, including the
-`/etc/hosts` line and what happens if the device is on a different subnet).
+The official client reaches the Pocket only through 14 fixed names
+(`api.tiiny`, `p8800.api.tiiny`, `openai.api.tiiny`, … and `backup.managed.tiiny`). On Linux
+they come from `/etc/hosts`: [docs/network.md](docs/network.md) has the lines. In the Device
+window, **Status › Connection › Check connection** shows for each name where it resolves and
+whether it answers, and gives the exact line to add for the names that are missing.
 
 ## Uninstall
 

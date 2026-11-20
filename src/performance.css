@@ -187,9 +187,11 @@ dialog h2{margin-bottom:var(--sp-3)}
 dialog .actions{display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-4)}
 dialog p + p, dialog blockquote + p, dialog p + blockquote{margin-top:var(--sp-2)}
 
-/* ---- states preview (Status tab: the strip under other conditions) ---- */
-.preview{display:flex;flex-direction:column;gap:var(--sp-2)}
-.preview .strip{border:1px solid var(--line);border-radius:var(--r-1)}
+/* ---- connection check (Status tab) ---- */
+.conn-fix{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin-top:var(--sp-3)}
+.conn-fix p{flex-basis:100%}
+.conn-fix code{flex:1;min-width:0;overflow-wrap:anywhere;padding:var(--sp-1) var(--sp-2);
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-1)}
 
 @media (max-width: 900px){
   .kpi,.kpi.five{grid-template-columns:repeat(3,minmax(0,1fr))}

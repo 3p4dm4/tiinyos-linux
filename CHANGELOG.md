@@ -10,6 +10,10 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 ## [Unreleased]
 
 ### Added
+- **Connection check** (Device › Status › Connection, `src/m3_netcheck.js`): for each of the 14
+  device names the app uses, where it resolves (`/etc/hosts` or DNS) and the HTTP answer of a
+  plain `GET /` (no key sent), with one verdict and one remedy per name, and the exact
+  `/etc/hosts` line for the names that are missing or point elsewhere, with a Copy button.
 - **Tool manifests** (`src/<id>.tool.json`, schema `docs/framework/tool.schema.json`): each tool
   declares its files, IPC prefix, standalone window, tray hook, device endpoints and PC state;
   `tests/test_manifests.py` checks it against the schema, `install.sh`, `tools/patch_main.py`,
@@ -78,6 +82,8 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   `src/m3_device.js` gained a JSON `DELETE` verb (the update flow needs it).
 
 ### Fixed
+- README and `build_clone.sh` asked for `api.tiiny models.api.tiiny` only; the app uses 14 names
+  (`docs/network.md`), and the README described a `:8080` rewrite that does not exist.
 - `install.sh` now also checks that `m3_bench.js` (the benchmark) made it into the repacked bundle.
 - The preload bridge passed `invoke` on any IPC channel; it now allows only `m3:*`, both ways,
   and adds the `on` event subscription the Device window needs.

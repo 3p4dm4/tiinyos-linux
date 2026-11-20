@@ -159,6 +159,14 @@ const STORE = [
 ];
 const BENCH = { kind: 'chat', inputTps: 4200, outputTps: 95, ttftMs: 130, p95Ms: 480, errorRate: 0.001 };
 
+const NETCHECK = {
+  readAt: Date.now(), deviceIp: '10.9.9.2', ok: 1, total: 2, hostsLine: '10.9.9.2 tts.api.tiiny',
+  hosts: [
+    { host: 'api.tiiny', inHosts: true, address: '10.9.9.2', http: 404, verdict: 'ok', remedy: '' },
+    { host: 'tts.api.tiiny', inHosts: false, address: null, http: null, verdict: 'missing', remedy: 'Not in /etc/hosts: add it (line below).' },
+  ],
+};
+
 function buildWindow() {
   const doc = buildDocument();
   buildStatic(doc);
@@ -170,6 +178,7 @@ function buildWindow() {
         if (ch === 'm3:models') return Promise.resolve(MODELS);
         if (ch === 'm3:store') return Promise.resolve(STORE);
         if (ch === 'm3:benchmark') return Promise.resolve(BENCH);
+        if (ch === 'm3:device:netcheck') return Promise.resolve(NETCHECK);
         if (ch.indexOf('m3:device:') === 0) return Promise.reject(new Error('device-care: not installed'));
         return Promise.resolve(null);
       },
@@ -265,4 +274,19 @@ test('Device window boots against the fail-soft contract without throwing', asyn
 
   // 7) the persistent strip rendered (reach "unknown" until first read — here care is absent)
   assert.ok(document.getElementById('strip-reach').children.length >= 1, 'strip reach populated');
+});
+
+test('Connection check: the button fills the table and the /etc/hosts line', async function () {
+  const { document } = bootAll();
+  await tick();
+  assert.equal(document.getElementById('conn-sum').textContent, 'Not checked yet.');
+  assert.ok(document.getElementById('conn-fix').hidden, 'no fix line before a check');
+  document.getElementById('conn-run')._listeners.click[0]();
+  await tick();
+  assert.match(document.getElementById('conn-sum').textContent, /^1 of 2 names answer · device at 10\.9\.9\.2/);
+  const rows = document.getElementById('conn-rows').querySelectorAll('tr');
+  assert.equal(rows.length, 2);
+  assert.equal(document.getElementById('conn-fix').hidden, false);
+  assert.equal(document.getElementById('conn-line').textContent, '10.9.9.2 tts.api.tiiny');
+  assert.equal(document.getElementById('conn-run').disabled, false, 'button enabled again');
 });

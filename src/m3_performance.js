@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { BASE, P8800, jget } = require('./m3_device');
 const { runBenchmark } = require('./m3_bench');
+const { check } = require('./m3_netcheck');
 const care = require('./m3_care'); // engine starts app-wide (also from the tray patch); wire per window
 
 let win = null;
@@ -67,6 +68,8 @@ function wire() {
     }));
   });
   ipcMain.handle('m3:benchmark', (_e, model) => runBenchmark(String(model || '')));
+  // Connection check: /etc/hosts + one GET per device name (m3_netcheck.js)
+  ipcMain.handle('m3:device:netcheck', () => check());
 }
 
 module.exports = { open, wire };
