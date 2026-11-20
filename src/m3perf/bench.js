@@ -1,32 +1,53 @@
-/* M3 perf — benchmark runner: one row per run in the results table.
- * The result shape (kind/ttft/total/tok_s/summary) comes from main (m3_bench.js). */
+/* M3 Device — benchmark runner (renderer side).
+ *
+ * Runs the capability-aware benchmark through the existing `m3:benchmark` IPC
+ * (main/m3_bench.js) and keeps a short in-session history so the Status tab can
+ * show a "Benchmark runs" table and a per-model "Last benchmark" cell. History
+ * is deliberately session-only (not persisted): a benchmark is a probe, not a
+ * record.
+ */
 window.M3 = window.M3 || {};
 M3.bench = (function () {
-  const { num } = M3.fmt;
+  var CAPS = { systemone: 'decision', embedding: 'embedding', main: 'chat' };
 
-  async function run(model, btn) {
-    btn.disabled = true; btn.textContent = 'running…';
-    const tb = document.querySelector('#t-bench tbody');
-    try {
-      const r = await window.m3.invoke('m3:benchmark', model);
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td class="mono"></td><td></td><td class="mono">' + num(r.ttft_ms) + '</td>'
-        + '<td class="mono">' + r.total_ms + '</td><td class="mono">' + num(r.tok_per_s) + '</td>'
-        + '<td class="note"></td>';
-      tr.querySelector('td').textContent = r.model;
-      tr.children[1].textContent = r.kind || 'chat';
-      tr.querySelector('td:last-child').textContent = r.summary || '';
-      tb.prepend(tr);
-    } catch (e) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td class="mono"></td><td colspan="5" class="note err"></td>';
-      tr.querySelector('td').textContent = model;
-      tr.querySelector('td:last-child').textContent = String(e.message || e);
-      tb.prepend(tr);
-    } finally {
-      while (tb.rows.length > 9) tb.deleteRow(tb.rows.length - 1);
-      btn.disabled = false; btn.textContent = 'Benchmark';
-    }
+  // Which benchmark kind does a model support? null = not benchmarkable
+  // (music, media, speech). chat / decision / embedding are the three kinds the
+  // device answers with measurable latency/tokens (design §3 "Benchmark").
+  function kindOf(m) {
+    var caps = m.capabilities || [], t = m.type || '';
+    if (caps.indexOf('systemone') >= 0 || /classif/i.test(t)) return 'decision';
+    if (caps.indexOf('embedding') >= 0 || /embedding/i.test(t)) return 'embedding';
+    if (m.supports_chat || caps.indexOf('main') >= 0 || /text generation|image-text/i.test(t)) return 'chat';
+    return null;
   }
-  return { run };
+
+  var history = []; // newest first
+  function push(r) {
+    r.at = Date.now();
+    history.unshift(r);
+    while (history.length > 9) history.pop(); // "last 9"
+    M3.bus.emit('bench');
+  }
+  function lastFor(id) {
+    for (var i = 0; i < history.length; i++) if (history[i].model === id && history[i].ok) return history[i];
+    return null;
+  }
+
+  // Run a benchmark. btn (optional) is the row's button: it shows a spinner and
+  // stays disabled until the result lands (pending contract). Returns a Promise.
+  function run(modelId, kind, btn) {
+    if (btn) { btn.setAttribute('aria-busy', 'true'); btn.disabled = true; }
+    return window.m3.invoke('m3:benchmark', modelId).then(function (r) {
+      push({ model: r.model || modelId, kind: r.kind || kind || 'chat',
+        ttft_ms: r.ttft_ms == null ? null : r.ttft_ms, total_ms: r.total_ms,
+        tok_per_s: r.tok_per_s, summary: r.summary || '', ok: true });
+      return r;
+    }).catch(function (e) {
+      push({ model: modelId, kind: kind || 'chat', error: String(e.message || e), ok: false });
+      if (btn) { btn.removeAttribute('aria-busy'); btn.disabled = false; }
+      throw e;
+    }).then(function (r) { if (btn) { btn.removeAttribute('aria-busy'); btn.disabled = false; } return r; });
+  }
+
+  return { history: history, lastFor: lastFor, kindOf: kindOf, run: run };
 })();

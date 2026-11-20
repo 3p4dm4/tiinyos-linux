@@ -25,7 +25,7 @@ function open() {
   if (win && !win.isDestroyed()) { win.show(); win.focus(); return; }
   win = new BrowserWindow({
     width: 1100, height: 760, minWidth: 800, minHeight: 500,
-    title: 'Performance',
+    title: 'Device',
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
     webPreferences: {
