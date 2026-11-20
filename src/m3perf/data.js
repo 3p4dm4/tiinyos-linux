@@ -49,7 +49,7 @@ M3.data = (function () {
 
   /* ---- care state (the single source for the strip + Status + Power) ---- */
   function pollCare() {
-    care('m3:device:state').then(function (s) { if (s) M3.bus.emit('care', s); });
+    care('m3:device:state').then(function (s) { M3.bus.emit(s ? 'care' : 'care-missing', s); });
   }
   function pollLog() {
     care('m3:device:log').then(function (l) { if (l) M3.bus.emit('log', l); });

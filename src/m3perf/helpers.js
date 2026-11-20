@@ -285,7 +285,10 @@
   }
 
   // reach {state, lastRead, since, everyMs} -> {word, state, detail}
-  function stripReach(reach, now) {
+  // firstPaint = no answer from the engine yet, not a missing engine (CareState has
+  // its own `pending` array of loads, so the flag must not be called that)
+  function stripReach(reach, now, firstPaint) {
+    if (firstPaint === true) return { word: 'Reading', state: 'idle', detail: 'waiting for the first answer from the device-care engine' };
     if (!reach || !reach.state) {
       return { word: 'Engine not available', state: 'bad', detail: 'the device-care engine is not running in this build' };
     }

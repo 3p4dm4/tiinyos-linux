@@ -250,3 +250,10 @@ test('appLabel: "default" is shown as API clients, other names unchanged', () =>
   assert.equal(H.appLabel('default'), 'API clients (default)');
   assert.equal(H.appLabel('TiinyOS'), 'TiinyOS');
 });
+
+test('stripReach: first paint says Reading; a CareState with an empty pending[] is not first paint', () => {
+  assert.equal(H.stripReach(null, NOW, true).word, 'Reading');
+  // CareState carries pending: [] (loads in progress); it must not read as "first paint"
+  const care = { reach: { state: 'reachable', lastRead: NOW, everyMs: 5000 }, pending: [] };
+  assert.equal(H.stripReach(care.reach, NOW, care.firstPaint).word, 'Reachable');
+});

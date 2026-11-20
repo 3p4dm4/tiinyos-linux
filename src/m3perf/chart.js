@@ -27,7 +27,8 @@ M3.chart = (function () {
     if (n >= 1e3) return Math.round(n / 1e3) + 'K';
     return String(n);
   }
-  function fillOf(s) { return 'fill:var(--series-' + (s.other ? 'other' : s.slot) + ')'; }
+  // a class, not a style attribute: the page CSP (style-src 'self') drops style="" on SVG
+  function fillOf(s) { return 'seg s-' + (s.other ? 'other' : s.slot); }
 
   // Draws the stacked bars. Returns nothing; safe to call repeatedly.
   function draw(svg, o) {
@@ -61,9 +62,9 @@ M3.chart = (function () {
         if (isTop && hgt > 4) {
           var path = 'M' + x + ' ' + y0 + ' V' + (y1 + r) + ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' -' + r +
             ' H' + (x + BAR - r) + ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' ' + r + ' V' + y0 + ' Z';
-          g.appendChild(svgEl('path', { 'class': 'seg', d: path, style: fillOf(m) }));
+          g.appendChild(svgEl('path', { 'class': fillOf(m), d: path }));
         } else {
-          g.appendChild(svgEl('rect', { 'class': 'seg', x: x, y: y1, width: BAR, height: Math.max(hgt, 0), style: fillOf(m) }));
+          g.appendChild(svgEl('rect', { 'class': fillOf(m), x: x, y: y1, width: BAR, height: Math.max(hgt, 0) }));
         }
         acc += val;
       });

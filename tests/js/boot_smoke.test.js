@@ -274,6 +274,8 @@ test('Device window boots against the fail-soft contract without throwing', asyn
 
   // 7) the persistent strip rendered (reach "unknown" until first read — here care is absent)
   assert.ok(document.getElementById('strip-reach').children.length >= 1, 'strip reach populated');
+  // the failed m3:device:state read reaches the strip (not stuck on the first-paint "Reading")
+  assert.equal(document.getElementById('strip-reach').children[0].textContent, 'Engine not available');
 });
 
 test('Connection check: the button fills the table and the /etc/hosts line', async function () {

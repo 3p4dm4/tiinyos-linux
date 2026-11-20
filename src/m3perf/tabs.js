@@ -32,7 +32,7 @@ M3.strip = (function () {
       var now = s.now || Date.now();
       // reach word + detail (word is the only thing that carries severity colour)
       var reachEl = document.getElementById('strip-reach');
-      var rt = h.stripReach(s.reach, now);
+      var rt = h.stripReach(s.reach, now, s.firstPaint);
       reachEl.textContent = '';
       var w = document.createElement('span');
       w.className = 'st ' + rt.state;
@@ -114,8 +114,11 @@ M3.tabs = (function () {
       });
     });
 
-    // first paint: the reach is unknown until the first read lands
-    M3.strip.render({ reach: null, running: [], tasks: [] });
+    // first paint: the reach is unknown until the first read lands; then every
+    // CareState (poll or push) redraws it, and a failed read says the engine is missing
+    M3.strip.render({ firstPaint: true, running: [], tasks: [] });
+    M3.bus.on('care', M3.strip.render);
+    M3.bus.on('care-missing', function () { M3.strip.render({ reach: null, running: [], tasks: [] }); });
   }
 
   return { init: init };

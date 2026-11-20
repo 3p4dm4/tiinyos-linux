@@ -289,10 +289,10 @@ M3.status = (function () {
     }
     var word = t.state === 'running' ? 'Running' : (t.state === 'waiting' ? 'Waiting' : (t.state === 'queued' ? 'Queued' : (t.state || 'Running').replace(/\b\w/g, function (c) { return c.toUpperCase(); })));
     s.appendChild(st(word, t.state === 'running' ? 'warn' : 'idle'));
-    if (t.label) s.appendChild(document.createTextNode(' ' + h.shortName(t.label)));
+    // the model name is already in the Task column
     if (t.kind === 'restore' && t.steps) s.appendChild(document.createTextNode(' ' + Math.round((t.progress || 0) * 100) + '% · ' + t.step + ' of ' + t.steps + ' to load'));
     else if (typeof t.progress === 'number') { s.appendChild(meterBar(t.progress * 100, 'warn')); s.appendChild(document.createTextNode(' ' + Math.round(t.progress * 100) + '%')); }
-    if (t.kind === 'update' && t.steps) s.appendChild(document.createTextNode(' · step ' + (t.step || 1) + ' of ' + t.steps + (typeof t.progress === 'number' ? ' · downloading ' + Math.round(t.progress * 100) + '%' : '')));
+    if (t.kind === 'update' && t.steps) s.appendChild(document.createTextNode(' · step ' + (t.step || 1) + ' of ' + t.steps + (typeof t.progress === 'number' ? ' · downloading' : '')));
     if (t.kind === 'download' && t.note) s.appendChild(el('span', 'note', ' · ' + t.note));
     return s;
   }
