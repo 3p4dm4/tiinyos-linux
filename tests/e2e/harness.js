@@ -259,12 +259,17 @@ function main() {
       throw new Error('a push payload was not a CareState');
     ok('m3:device:changed push', pushes.length + ' CareState pushes reached the renderer');
 
+    // the bridge only passes our own m3:* channels, both ways (vendor IPC stays out)
     const guard = await win.webContents.executeJavaScript(
-      `(function(){ try { window.m3.on('m3:device:state', () => {}); return 'accepted'; }
-         catch (e) { return 'rejected: ' + e.message; } })()`);
-    if (!String(guard).startsWith('rejected'))
-      throw new Error('preload accepted a non-whitelisted channel: ' + guard);
-    ok('preload guard', 'window.m3.on refuses channels other than m3:device:changed');
+      `(async function(){
+         let on, inv;
+         try { window.m3.on('app:quit', () => {}); on = 'accepted'; } catch (e) { on = 'rejected'; }
+         try { await window.m3.invoke('get-config'); inv = 'accepted'; }
+         catch (e) { inv = /channel not allowed/.test(e.message) ? 'rejected' : 'passed-to-main'; }
+         return on + '/' + inv; })()`);
+    if (guard !== 'rejected/rejected')
+      throw new Error('preload accepted a non-m3 channel (on/invoke): ' + guard);
+    ok('preload guard', 'on and invoke refuse channels outside m3:*');
 
     console.log('E2E ALL OK');
     ctl.stop();

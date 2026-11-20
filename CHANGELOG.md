@@ -19,6 +19,10 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 - **Cross-process engine lock** (`src/m3_lock.js`, pure Node): `acquire`/`release`/`holder` with a
   pid-ownership and staleness model, so the care engine runs in exactly one process; tested in
   `tests/js/m3_lock.test.js`.
+- The care engine takes that lock (`engine.lock` next to its state files): when the TiinyOS app and
+  the standalone Device window both run, only the lock holder restores models, runs updates and
+  writes the log; the other window shows the same state, refuses updates with a message naming
+  the holder, and takes over when the holder quits (`tests/js/care_lock.test.js`).
 - **"Tiiny Device" desktop entry** (`install.sh`), pointing at the standalone launcher; removed on
   `--uninstall`.
 - **Device care engine** (`src/m3_care.js`, `src/m3_care_store.js`, `src/m3_models.js`):

@@ -30,6 +30,8 @@
 const { BASE, jget, jpost, jdelete } = require('./m3_device');
 const { mpath, shortName, fitPlan, ensureLoaded, ensureUnloaded, runningIds } = require('./m3_models');
 const { createStore } = require('./m3_care_store');
+const lock = require('./m3_lock');
+const path = require('path');
 
 const POLL_MS = 5000;
 let OUTAGE_MS = 15000; // no answer for >15 s and then an answer = outage
@@ -40,6 +42,13 @@ let LOAD_POLL_MS = 1500;
 
 const S = {
   store: null,        // set by start() (base dir injectable for tests)
+  // Engine lock: the TiinyOS app and a standalone Device window may both load
+  // this module. Only the process holding engine.lock acts (restore, updates,
+  // journal resume, log/snapshot writes); any other one only reads, and takes
+  // over when the holder goes away. Tests that never start the timer stay owner.
+  owner: true,
+  holder: null,       // the other process's lock record while we are not owner
+  lockPath: null,
   timer: null,
   win: null,
   lastGood: 0,        // ms of last good read (0 = never)
@@ -95,14 +104,14 @@ function touchSnapshot(ids) {
     if (ids.includes(s.id)) { next.push(s); seen.add(s.id); }
   for (const id of ids) if (!seen.has(id)) next.push({ id, t: now });
   S.snapshot = next;
-  if (S.store) S.store.setLastSnapshot(now, next.map((x) => x.id));
+  if (S.store && S.owner) S.store.setLastSnapshot(now, next.map((x) => x.id));
 }
 
 /* ---------- activity log ---------- */
 
 // { t, event, detail, by: "pc"|"device" }; 'device' = this PC did not ask.
 const logEvent = (event, detail = '', by = 'pc') =>
-  S.store ? S.store.log(event, detail, by) : null;
+  S.store && S.owner ? S.store.log(event, detail, by) : null;
 
 // Own actions (this PC asked for the load/unload) are marked with a short
 // window: the device reports asynchronously, so the next poll's diff must
@@ -152,6 +161,7 @@ function closeOutage(now, ids) {
 /* ---------- poll ---------- */
 
 async function pollOnce() {
+  if (!S.owner) claim(); // the holder may have quit since the last poll
   const t0 = Date.now();
   let ids = null;
   try {
@@ -228,7 +238,7 @@ async function pollOnce() {
 // one at a time, in load order. Never unloads anything: a model that would
 // evict another is reported and skipped.
 async function startRestore(outage) {
-  if (S.restore) return null;
+  if (!S.owner || S.restore) return null;
   // One thing at a time on the device: while an update runs (or is waiting in
   // the journal) the restore defers and runs when the update queue finishes.
   if (S.updateTask || S.store.journal()) {
@@ -442,7 +452,7 @@ async function runUpdate(model, from, to, wasLoaded, startStep, queue, task) {
 // Resume: on app start and after every outage. No-op unless a journal exists
 // and no update is already running.
 async function maybeResume() {
-  if (S.updateTask) return;
+  if (!S.owner || S.updateTask) return;
   const j = S.store.journal();
   if (!j) return;
   if (S.restore) return; // restore is running; it defers while this journal exists
@@ -459,6 +469,7 @@ async function maybeResume() {
 // step is still pending). Throws if the model is unknown, not installed, up
 // to date, or another update is in flight.
 async function update(modelId) {
+  notOwner();
   if (S.restore) throw new Error('restore in progress, try again shortly');
   if (S.updateTask) throw new Error('an update is already running');
   const e = await storeEntry(modelId);
@@ -484,6 +495,7 @@ async function update(modelId) {
 
 // Queues every installed model that has an update, one at a time.
 async function updateAll() {
+  notOwner();
   if (S.restore) throw new Error('restore in progress, try again shortly');
   if (S.updateTask) return { taskIds: [S.updateTask.id] };
   const queue = (await storeList())
@@ -618,6 +630,7 @@ function state() {
     acPower: S.acPower,
     outages: S.outages,
     lastSnapshot: S.store ? S.store.care().lastSnapshot : null,
+    engine: { owner: S.owner, holder: S.holder ? { pid: S.holder.pid, tool: S.holder.tool } : null },
   };
 }
 
@@ -629,6 +642,28 @@ function pushIfChanged() {
 }
 
 /* ---------- lifecycle ---------- */
+
+// Take engine.lock if free or stale (holder pid gone). No age bound: a live
+// holder keeps it until it quits.
+function claim() {
+  if (!S.lockPath) return;
+  const was = S.owner;
+  let r;
+  try { r = lock.acquire(S.lockPath, { tool: process.env.TIINY_TOOL || 'tiinyos' }); }
+  catch (e) { r = { ok: false, holder: null }; console.error('[M3] engine lock:', e.message); }
+  S.owner = r.ok;
+  S.holder = r.ok ? null : r.holder;
+  if (S.owner && !was) {
+    console.log('[M3] care engine: this process now runs restore and updates');
+    maybeResume();
+  }
+}
+
+function notOwner() {
+  if (S.owner) return;
+  const who = S.holder ? `${S.holder.tool || 'another app'} (pid ${S.holder.pid})` : 'another app';
+  throw new Error(`updates run in ${who}; use the Device window there`);
+}
 
 // Start the engine (idempotent). baseDir injects the store dir (tests use a
 // temp dir; the app uses the default ~/.config/tiinyos-linux). pollMs = 0
@@ -644,6 +679,15 @@ function start(opts = {}) {
   const prev = S.store.care().lastSnapshot;
   if (prev) S.snapshot = prev.ids.map((id) => ({ id, t: prev.t }));
   const pm = opts.pollMs === undefined ? POLL_MS : opts.pollMs;
+  if (pm > 0 || opts.lock) {
+    S.lockPath = path.join(S.store.dir, 'engine.lock');
+    S.owner = false;
+    claim();
+    if (!S.exitHook) {
+      S.exitHook = true;
+      process.once('exit', () => { if (S.owner && S.lockPath) lock.release(S.lockPath); });
+    }
+  }
   if (pm > 0) {
     S.timer = setInterval(() => { pollOnce().catch(() => {}); }, pm);
     if (S.timer.unref) S.timer.unref(); // never hold the process open in tests
@@ -656,6 +700,8 @@ function start(opts = {}) {
 // Reset the module state (test isolation between scenarios in one process).
 function _reset() {
   if (S.timer) { clearInterval(S.timer); S.timer = null; }
+  if (S.lockPath && S.owner) lock.release(S.lockPath);
+  S.owner = true; S.holder = null; S.lockPath = null;
   S.store = null; S.win = null;
   S.lastGood = 0; S.failSince = 0; S.failKind = null;
   S.reach = { state: 'unreachable', lastRead: 0, since: 0, everyMs: POLL_MS };
@@ -745,7 +791,7 @@ function wire(win) {
 module.exports = {
   POLL_MS, OUTAGE_MS, STALE_MS,
   _S: S, _pollOnce: pollOnce, _startRestore: startRestore,
-  _newTask: newTask, _stopTask: stopTask, _state: state, _reset,
+  _newTask: newTask, _stopTask: stopTask, _state: state, _reset, _claim: claim,
   getAcPower, setAcPower, usage, appUsage, mondayOf, logEvent, markOwn,
   currentTask, state, start, wire, installedModels,
   update, updateAll, maybeResume,
