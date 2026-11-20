@@ -1,15 +1,15 @@
 /* M3 Device — Power tab: "what happens when power returns" (design §3 "Power").
  *
- *   · When power returns  — AC-power switch (device setting, m3:care:setAcPower)
- *                           + the restore policy radios (m3:care:setPolicy:
+ *   · When power returns  — AC-power switch (device setting, m3:device:setAcPower)
+ *                           + the restore policy radios (m3:device:setPolicy:
  *                           off / kept / all).
  *   · Keep loaded         — which models to reload after an outage
- *                           (m3:care:keep).
+ *                           (m3:device:keep).
  *   · Restore in progress — the live restore (per model), with Stop.
  *   · Outages seen from   — the last-30-days outage history + a plain-language
  *   this PC                 advice line.
  *
- * Every control goes through an m3:care:* channel and FAILS SOFT: the engine is
+ * Every control goes through an m3:device:* channel and FAILS SOFT: the engine is
  * not wired yet, so this build shows the controls in their default state,
  * disabled, with a "not available" note. When a care state arrives the controls
  * become live. No fake values are shown.
@@ -29,7 +29,7 @@ M3.power = (function () {
       M3.bus.emit('readnow'); // re-pull care state so the control reflects the device
     }).catch(function (e) {
       softFail(revert);
-      R.note.textContent = (ch === 'm3:care:setAcPower' ? 'AC power' : ch === 'm3:care:setPolicy' ? 'Restore policy' : 'Keep loaded') +
+      R.note.textContent = (ch === 'm3:device:setAcPower' ? 'AC power' : ch === 'm3:device:setPolicy' ? 'Restore policy' : 'Keep loaded') +
         ' needs the device-care engine, which is not available in this build (' + String(e.message || e) + ').';
       console.warn('[M3]', ch, e.message || e);
     });
@@ -177,7 +177,7 @@ M3.power = (function () {
       var sr = el('span', 'sr-only', 'Keep ' + m.id + ' loaded'); sr.id = 'k' + safeId(m.id) + 'd';
       inp.setAttribute('aria-describedby', 'k' + safeId(m.id) + 'd');
       w.appendChild(inp); w.appendChild(sr);
-      inp.addEventListener('change', function () { fire('m3:care:keep', { id: m.id, on: inp.checked }, function () { inp.checked = !inp.checked; }); });
+      inp.addEventListener('change', function () { fire('m3:device:keep', { id: m.id, on: inp.checked }, function () { inp.checked = !inp.checked; }); });
       cell.appendChild(w);
       tr.appendChild(cell);
       R.keepB.appendChild(tr);
@@ -202,8 +202,8 @@ M3.power = (function () {
         if (m.note) st.appendChild(el('span', 'note', ' ' + m.note));
         tr.appendChild(st);
         var act = el('td', 'right');
-        if (m.canSkip) { var b = el('button', null, 'Skip'); b.type = 'button'; b.addEventListener('click', function () { fire('m3:care:stopTask', { taskId: m.taskId, skip: m.id }); }); act.appendChild(b); }
-        if (m.canForce) { var fb = el('button', null, 'Load anyway'); fb.type = 'button'; fb.className = 'primary'; fb.addEventListener('click', function () { fire('m3:care:load', { id: m.id }); }); act.appendChild(fb); }
+        if (m.canSkip) { var b = el('button', null, 'Skip'); b.type = 'button'; b.addEventListener('click', function () { fire('m3:device:stopTask', { taskId: m.taskId, skip: m.id }); }); act.appendChild(b); }
+        if (m.canForce) { var fb = el('button', null, 'Load anyway'); fb.type = 'button'; fb.className = 'primary'; fb.addEventListener('click', function () { fire('m3:device:load', { id: m.id }); }); act.appendChild(fb); }
         tr.appendChild(act);
         R.restoreB.appendChild(tr);
       });
@@ -246,18 +246,18 @@ M3.power = (function () {
     build();
     R.ac.addEventListener('change', function () {
       var next = R.ac.checked;
-      fire('m3:care:setAcPower', { on: next }, function () { R.ac.checked = !next; });
+      fire('m3:device:setAcPower', { on: next }, function () { R.ac.checked = !next; });
     });
     R.radios.forEach(function (inp) {
       inp.addEventListener('change', function () {
         var v = inp.value;
-        fire('m3:care:setPolicy', { reload: v }, function () { /* radio can't be un-checked; leave as-is and note */ });
+        fire('m3:device:setPolicy', { reload: v }, function () { /* radio can't be un-checked; leave as-is and note */ });
       });
     });
     R.restoreStop.addEventListener('click', function () {
       var c = last.care || {};
       var t = (c.tasks || []).filter(function (x) { return x.kind === 'restore'; })[0];
-      if (t) fire('m3:care:stopTask', { taskId: t.id });
+      if (t) fire('m3:device:stopTask', { taskId: t.id });
     });
     render();
     M3.bus.on('care', function (c) { last.care = c; render(); });

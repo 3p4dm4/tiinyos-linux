@@ -93,7 +93,7 @@ test('weekRange counts days so far', () => {
 });
 
 /* ---------------- usage aggregation ---------------- */
-// Shape mirrors the m3:care:usage contract:
+// Shape mirrors the m3:device:usage contract:
 //   days: { "<YYYY-MM-DD>": { "<model id>": {prompt, completion, total, requests} } }
 const DAYS = {
   '2026-11-16': {

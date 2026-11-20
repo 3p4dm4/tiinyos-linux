@@ -12,7 +12,7 @@ Requires patch_ball_click.py to have run first (anchor #2 is its output).
 
 The tray anchor also carries an env-gated test hook: with M3_OPEN_DEVICE set,
 the Device (Performance) window opens itself at startup so the end-to-end
-test can exercise the m3:care:* IPC from the renderer (tests/e2e/). No
+test can exercise the m3:device:* IPC from the renderer (tests/e2e/). No
 behaviour change when the variable is unset. The care engine itself starts
 from m3_activity (present in every installed bundle), not from this patch.
 """

@@ -2,15 +2,15 @@
  *
  *   · In memory        — the p8800 in-memory list (m3:models: id/context/
  *                        capabilities/type), enriched with live status from
- *                        m3:care:state.running (ready / loading). The PC can
+ *                        m3:device:state.running (ready / loading). The PC can
  *                        load / unload / benchmark these.
  *   · Installed on     — the device store. Base = m3:store (installed: size,
- *   device              type). When the care engine is present, m3:care:models
+ *   device              type). When the care engine is present, m3:device:models
  *                        adds version, update state and the not-installed set
  *                        (Download). The PC updates and downloads; it does not
  *                        load these from here.
  *
- * Device-side actions (Update / Download / Unload / Load) go through m3:care:*
+ * Device-side actions (Update / Download / Unload / Load) go through m3:device:*
  * and fail soft when the engine is absent (button re-enables, a note explains).
  * Load/Unload also work through the care channel; no fake state is shown.
  */
@@ -103,11 +103,11 @@ M3.models = (function () {
       var act = el('td', 'right');
       if (loading) {
         var sb = el('button', null, 'Stop'); sb.type = 'button';
-        sb.addEventListener('click', function () { fire('m3:care:unload', { id: m.id }, sb); });
+        sb.addEventListener('click', function () { fire('m3:device:unload', { id: m.id }, sb); });
         act.appendChild(sb);
       } else {
         var ub = el('button', null, 'Unload'); ub.type = 'button';
-        ub.addEventListener('click', function () { fire('m3:care:unload', { id: m.id }, ub); });
+        ub.addEventListener('click', function () { fire('m3:device:unload', { id: m.id }, ub); });
         act.appendChild(ub);
         if (kind) {
           var bb = el('button', null, 'Benchmark'); bb.type = 'button'; bb.className = 'primary';
@@ -158,7 +158,7 @@ M3.models = (function () {
       var ub = el('button', null, 'Update'); ub.type = 'button'; ub.className = 'primary';
       if (!useCare) { ub.disabled = true; ub.title = 'device-care engine not available'; }
       else if (a.update_state !== 'none' && a.update_state !== 'available') ub.disabled = true;
-      ub.addEventListener('click', function () { fire('m3:care:update', { id: m.id }, ub); });
+      ub.addEventListener('click', function () { fire('m3:device:update', { id: m.id }, ub); });
       act.appendChild(ub);
       tr.appendChild(act);
       tb.appendChild(tr);
@@ -175,7 +175,7 @@ M3.models = (function () {
       var act = el('td', 'right');
       var db = el('button', null, 'Download'); db.type = 'button'; db.className = 'primary';
       if (!useCare) { db.disabled = true; db.title = 'device-care engine not available'; }
-      db.addEventListener('click', function () { fire('m3:care:download', { id: m.id }, db); });
+      db.addEventListener('click', function () { fire('m3:device:download', { id: m.id }, db); });
       act.appendChild(db);
       tr.appendChild(act);
       tb.appendChild(tr);
@@ -193,7 +193,7 @@ M3.models = (function () {
       window.m3.invoke('m3:store').then(function (r) {
         last.store = { ok: true, models: Array.isArray(r) ? r : [] }; render();
       }).catch(function (e) { last.store = { ok: false, error: String(e.message || e) }; render(); });
-      window.m3.invoke('m3:care:models').then(function (m) {
+      window.m3.invoke('m3:device:models').then(function (m) {
         last.careModels = m || null; render();
       }).catch(function () { last.careModels = null; render(); });
     }

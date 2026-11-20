@@ -39,7 +39,7 @@ function open() {
   win.setMenuBarVisibility(false);
   win.loadFile(htmlPath());
   win.on('closed', () => { win = null; });
-  care.wire(win); // re-wires IPC and the m3:care:changed push for this window
+  care.wire(win); // re-wires IPC and the m3:device:changed push for this window
 }
 
 let ipcWired = false;

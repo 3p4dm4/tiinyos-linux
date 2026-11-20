@@ -22,20 +22,20 @@ All payloads are plain JSON. Times are epoch milliseconds; the UI formats them (
 
 | channel | args | returns |
 |---|---|---|
-| `m3:care:state` | — | `CareState` (below) |
-| `m3:care:models` | — | `{ models: [InstalledModel] }` |
-| `m3:care:usage` | `{ weekStart: "YYYY-MM-DD" }` (Monday) | `{ weekStart, days: { "YYYY-MM-DD": { "<model id>": { prompt, completion, total, requests } } }, apps: { "<app>": { total, models: { "<model id>": tokens } } }, readAt }` |
-| `m3:care:log` | `{ since?: ms }` | `{ entries: [ { t, event, detail, by: "pc"|"device" } ] }` newest first, 7 days kept |
-| `m3:care:setAcPower` | `{ on: bool }` | `{ acPower: bool }` (re-read from the device after the POST) |
-| `m3:care:setPolicy` | `{ reload: "off"|"kept"|"all" }` | `{ reload }` |
-| `m3:care:keep` | `{ id, on: bool }` | `{ kept: [id] }` |
-| `m3:care:load` / `m3:care:unload` | `{ id }` | `{ ok: true }` or throws with a readable message |
-| `m3:care:update` | `{ id }` | `{ taskId }` (async; progress via state) |
-| `m3:care:updateAll` | — | `{ taskIds: [] }` |
-| `m3:care:stopTask` | `{ taskId }` | `{ ok: true }` (stops after the current step) |
+| `m3:device:state` | — | `CareState` (below) |
+| `m3:device:models` | — | `{ models: [InstalledModel] }` |
+| `m3:device:usage` | `{ weekStart: "YYYY-MM-DD" }` (Monday) | `{ weekStart, days: { "YYYY-MM-DD": { "<model id>": { prompt, completion, total, requests } } }, apps: { "<app>": { total, models: { "<model id>": tokens } } }, readAt }` |
+| `m3:device:log` | `{ since?: ms }` | `{ entries: [ { t, event, detail, by: "pc"|"device" } ] }` newest first, 7 days kept |
+| `m3:device:setAcPower` | `{ on: bool }` | `{ acPower: bool }` (re-read from the device after the POST) |
+| `m3:device:setPolicy` | `{ reload: "off"|"kept"|"all" }` | `{ reload }` |
+| `m3:device:keep` | `{ id, on: bool }` | `{ kept: [id] }` |
+| `m3:device:load` / `m3:device:unload` | `{ id }` | `{ ok: true }` or throws with a readable message |
+| `m3:device:update` | `{ id }` | `{ taskId }` (async; progress via state) |
+| `m3:device:updateAll` | — | `{ taskIds: [] }` |
+| `m3:device:stopTask` | `{ taskId }` | `{ ok: true }` (stops after the current step) |
 
-Push (main → renderer, `window.m3.on`): `m3:care:changed` with a fresh `CareState` whenever it changes
-(at most once per second). The renderer may also poll `m3:care:state` every 5 s.
+Push (main → renderer, `window.m3.on`): `m3:device:changed` with a fresh `CareState` whenever it changes
+(at most once per second). The renderer may also poll `m3:device:state` every 5 s.
 
 ### CareState
 

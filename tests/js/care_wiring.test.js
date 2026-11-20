@@ -1,5 +1,5 @@
 // Wiring tests for the care engine's IPC layer (src/m3_care.js wire()) and the
-// m3:care:changed push, using a fake Electron ipcMain (require stub) and a
+// m3:device:changed push, using a fake Electron ipcMain (require stub) and a
 // fake window/webContents — no Electron binary involved. The device is the
 // fake Tiiny Pocket, driven via tests/fake_pocket_ctl.py.
 //
@@ -160,7 +160,7 @@ test('wire: contract handlers (state, models, log, setPolicy, keep, setAcPower, 
   const call = (ch, arg) => handlers.get(ch)({ sender: null }, arg);
 
   // state: CareState shape (contract v0.4.0)
-  const st = await call('m3:care:state');
+  const st = await call('m3:device:state');
   assert.equal(st.reach.state, 'reachable');
   assert.ok(st.reach.lastRead > 0, 'lastRead present');
   assert.ok(st.reach.everyMs > 0, 'everyMs present');
@@ -173,37 +173,37 @@ test('wire: contract handlers (state, models, log, setPolicy, keep, setAcPower, 
   assert.ok(st.lastSnapshot && Array.isArray(st.lastSnapshot.ids), 'lastSnapshot present');
 
   // models: inventory with flags
-  const inv = await call('m3:care:models');
+  const inv = await call('m3:device:models');
   assert.ok(Array.isArray(inv.models) && inv.models.length >= 3);
   assert.ok(inv.models.every((m) => typeof m.need_update === 'boolean'));
 
   // log: newest first
-  const lg = await call('m3:care:log', {});
+  const lg = await call('m3:device:log', {});
   assert.ok(Array.isArray(lg.entries));
 
   // setPolicy: invalid rejected, valid accepted
-  await assert.rejects(() => call('m3:care:setPolicy', { reload: 'bogus' }));
-  assert.deepStrictEqual(await call('m3:care:setPolicy', { reload: 'kept' }), { reload: 'kept' });
+  await assert.rejects(() => call('m3:device:setPolicy', { reload: 'bogus' }));
+  assert.deepStrictEqual(await call('m3:device:setPolicy', { reload: 'kept' }), { reload: 'kept' });
 
   // keep: add then remove
-  assert.deepStrictEqual((await call('m3:care:keep', { id: C, on: true })).kept, [C]);
-  assert.deepStrictEqual((await call('m3:care:keep', { id: C, on: false })).kept, []);
+  assert.deepStrictEqual((await call('m3:device:keep', { id: C, on: true })).kept, [C]);
+  assert.deepStrictEqual((await call('m3:device:keep', { id: C, on: false })).kept, []);
 
   // setAcPower: round-trips against the device and returns {acPower}
-  assert.deepStrictEqual(await call('m3:care:setAcPower', { on: true }), { acPower: true });
-  assert.deepStrictEqual(await call('m3:care:setAcPower', { on: false }), { acPower: false });
+  assert.deepStrictEqual(await call('m3:device:setAcPower', { on: true }), { acPower: true });
+  assert.deepStrictEqual(await call('m3:device:setAcPower', { on: false }), { acPower: false });
 
   // load / unload: ok
-  assert.deepStrictEqual(await call('m3:care:load', { id: C }), { ok: true });
-  assert.deepStrictEqual(await call('m3:care:unload', { id: C }), { ok: true });
+  assert.deepStrictEqual(await call('m3:device:load', { id: C }), { ok: true });
+  assert.deepStrictEqual(await call('m3:device:unload', { id: C }), { ok: true });
 
   // stopTask: unknown id is a no-op, not an error
-  assert.deepStrictEqual(await call('m3:care:stopTask', { taskId: 'nope' }), { ok: false });
+  assert.deepStrictEqual(await call('m3:device:stopTask', { taskId: 'nope' }), { ok: false });
 
   // update / updateAll: exact contract shapes ({taskId} / {taskIds})
-  await assert.rejects(() => call('m3:care:update', { id: C }),
+  await assert.rejects(() => call('m3:device:update', { id: C }),
     /up to date/, 'normal scenario: nothing to update');
-  assert.deepStrictEqual(await call('m3:care:updateAll'), { taskIds: [] });
+  assert.deepStrictEqual(await call('m3:device:updateAll'), { taskIds: [] });
 
   ctl.stop();
 });
@@ -217,11 +217,11 @@ test('wire: update handler returns {taskId} and the task runs to completion', as
   care.wire(fakeWin());
   const call = (ch, arg) => handlers.get(ch)({ sender: null }, arg);
 
-  const { taskId } = await call('m3:care:update', { id: C });
+  const { taskId } = await call('m3:device:update', { id: C });
   assert.ok(taskId, 'a taskId came back');
   const t0 = Date.now();
   for (;;) { // speed 2: unload+delete+download+reload finishes in ~5 s
-    const st = await call('m3:care:state');
+    const st = await call('m3:device:state');
     const task = st.tasks.find((t) => t.id === taskId);
     if (!task || task.state === 'done') break;
     assert.notEqual(task.state, 'failed', 'update task failed');
@@ -233,7 +233,7 @@ test('wire: update handler returns {taskId} and the task runs to completion', as
   ctl.stop();
 });
 
-test('push m3:care:changed: at most once per second, payload is a CareState; did-finish-load pushes immediately', async () => {
+test('push m3:device:changed: at most once per second, payload is a CareState; did-finish-load pushes immediately', async () => {
   const ctl = await spawnCtl('normal');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'care-w2-')); dirs.push(dir);
   const care = freshCare(ctl.base);
@@ -246,7 +246,7 @@ test('push m3:care:changed: at most once per second, payload is a CareState; did
   await care._pollOnce(); // within 1 s: throttled
   await care._pollOnce(); // still throttled
   assert.equal(win.pushes.length, 1, 'no more than one push per second');
-  assert.equal(win.pushes[0].ch, 'm3:care:changed');
+  assert.equal(win.pushes[0].ch, 'm3:device:changed');
   assert.equal(win.pushes[0].p.reach.state, 'reachable');
 
   // did-finish-load resets the throttle window (first state goes out with the

@@ -2,7 +2,7 @@
 // installed in this environment). Loads the Device-window modules against a
 // minimal DOM shim with a stub IPC bridge:
 //   · the EXISTING metrics channels (sysstatus/npustatus/models/store) RESOLVE,
-//   · every m3:care:* channel REJECTS  ("not installed").
+//   · every m3:device:* channel REJECTS  ("not installed").
 // Then asserts the shipped fail-soft behaviour:
 //   · boot runs without throwing (tabs + all four tabs + data owner),
 //   · the care-engine surfaces report "not available",
@@ -170,7 +170,7 @@ function buildWindow() {
         if (ch === 'm3:models') return Promise.resolve(MODELS);
         if (ch === 'm3:store') return Promise.resolve(STORE);
         if (ch === 'm3:benchmark') return Promise.resolve(BENCH);
-        if (ch.indexOf('m3:care:') === 0) return Promise.reject(new Error('device-care: not installed'));
+        if (ch.indexOf('m3:device:') === 0) return Promise.reject(new Error('device-care: not installed'));
         return Promise.resolve(null);
       },
       listen() {},

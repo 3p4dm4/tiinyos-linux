@@ -9,7 +9,7 @@
  *   · By model    — per-model table (top 10) with a color swatch.
  *   · By app      — per-app table with a column per top model.
  *
- * Data comes from m3:care:usage ({weekStart}) and FAILS SOFT: the engine is not
+ * Data comes from m3:device:usage ({weekStart}) and FAILS SOFT: the engine is not
  * wired yet, so this build shows the "read failed / engine not available"
  * state. No fake usage numbers are ever shown. The chart only draws when the
  * tab is visible (a hidden panel has zero width) and on resize.
@@ -267,7 +267,7 @@ M3.usage = (function () {
   function poll() {
     R.prev.disabled = offset >= 26;
     if (!window.m3 || !window.m3.invoke) { last.usage = null; last.error = 'IPC unavailable'; render(); return; }
-    window.m3.invoke('m3:care:usage', { weekStart: weekStart() }).then(function (u) {
+    window.m3.invoke('m3:device:usage', { weekStart: weekStart() }).then(function (u) {
       last.usage = u || null; last.error = null;
       if (u && u.readAt) last.readAt = u.readAt;
       render();

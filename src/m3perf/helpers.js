@@ -158,7 +158,7 @@
     return { start: dates[0], end: dates[6], dates: dates, daysSoFar: daysSoFar };
   }
 
-  /* ---------- usage aggregation (contract: m3:care:usage) ----------
+  /* ---------- usage aggregation (contract: m3:device:usage) ----------
    * days: { "YYYY-MM-DD": { "<model id>": {prompt, completion, total, requests} } }
    * apps: { "<app>": {total, models: { "<model id>": tokens }} }
    */

@@ -32,8 +32,8 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
   behaviour; per-model and app usage and a 7-day activity log are exposed. State
   (`care.json`, `care-journal.json`, `care-log.jsonl`) lives under
   `~/.config/tiinyos-linux/` with atomic writes.
-- The full `m3:care:*` IPC contract of `docs/design/device-contract.md` v0.4.0 on the
-  Device window, plus one `m3:care:changed` push (at most one per second) carrying the
+- The full `m3:device:*` IPC contract of `docs/design/device-contract.md` v0.4.0 on the
+  Device window, plus one `m3:device:changed` push (at most one per second) carrying the
   CareState.
 - The engine starts with the activity indicator — the one injection point every
   installed bundle has — so upgrading an existing install gets it without reopening

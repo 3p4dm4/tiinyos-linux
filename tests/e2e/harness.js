@@ -5,9 +5,9 @@
  * What it proves that the unit tests cannot:
  *   - the code that SHIPS (the asar-unpacked out/main files, the asar the
  *     installer produced) boots an engine in a real Electron process;
- *   - the real preload bridge (window.m3) round-trips the m3:care:* IPC
+ *   - the real preload bridge (window.m3) round-trips the m3:device:* IPC
  *     contract from a renderer, including rejections and the
- *     m3:care:changed push;
+ *     m3:device:changed push;
  *   - the full care flows complete end to end at real timings (5 s poll,
  *     15 s outage window): restore after a power cut, update, a power cut
  *     mid-download that resumes from the journal, updateAll, fit refusal,
@@ -110,36 +110,36 @@ function main() {
       win.webContents.executeJavaScript(
         `window.m3.invoke(${JSON.stringify(ch)}, ${JSON.stringify(arg)})`);
     await win.webContents.executeJavaScript(
-      `window.__pushes = []; window.m3.on('m3:care:changed', (s) => {
+      `window.__pushes = []; window.m3.on('m3:device:changed', (s) => {
          window.__pushes.push(s.reach && s.reach.state); }); 'subscribed'`);
     ok('harness up', 'real Electron + installed modules + preload bridge');
 
     // 1. reach: the engine sees the (fake) device and the bridge reports it
     await waitUntil('engine to reach the fake device', 15000,
       () => care.state().reach.state === 'reachable');
-    const st1 = await invoke('m3:care:state');
+    const st1 = await invoke('m3:device:state');
     if (st1.reach.state !== 'reachable') throw new Error('bridge state says ' + st1.reach.state);
     if (!st1.running.some((m) => m.id === 'tiiny/cogito-mini')) throw new Error('cogito-mini not in bridge running list: ' + JSON.stringify(st1.running));
     ok('reach', 'engine and bridge agree the device is reachable');
 
     // 2. model inventory + load/unload through the bridge
-    const models = await invoke('m3:care:models');
+    const models = await invoke('m3:device:models');
     if (models.models.length < 3) throw new Error('expected the full store list, got ' + models.models.length);
     const embed = models.models.find((m) => m.id === 'tiiny/embed-small');
     if (!embed || embed.need_update !== false) throw new Error('embed-small row wrong');
-    await invoke('m3:care:load', { id: 'tiiny/embed-small' }); // 3 s sim load
+    await invoke('m3:device:load', { id: 'tiiny/embed-small' }); // 3 s sim load
     await waitUntil('bridge to see embed-small loaded', 20000,
-      async () => (await invoke('m3:care:state')).running.some((m) => m.id === 'tiiny/embed-small'));
-    await invoke('m3:care:unload', { id: 'tiiny/embed-small' });
+      async () => (await invoke('m3:device:state')).running.some((m) => m.id === 'tiiny/embed-small'));
+    await invoke('m3:device:unload', { id: 'tiiny/embed-small' });
     await waitUntil('bridge to see embed-small unloaded', 20000,
-      async () => !(await invoke('m3:care:state')).running.some((m) => m.id === 'tiiny/embed-small'));
+      async () => !(await invoke('m3:device:state')).running.some((m) => m.id === 'tiiny/embed-small'));
     ok('models + load/unload', models.models.length + ' models through the renderer bridge');
 
     // 3. policy/keep, then the power cut: the outage opens, closes, and the
     //    kept policy restores what was in memory (boot restores nothing).
-    const pol = await invoke('m3:care:setPolicy', { reload: 'all' });
+    const pol = await invoke('m3:device:setPolicy', { reload: 'all' });
     if (pol.reload !== 'all') throw new Error('setPolicy returned ' + JSON.stringify(pol));
-    const keep = await invoke('m3:care:keep', { id: 'tiiny/cogito-mini', on: true });
+    const keep = await invoke('m3:device:keep', { id: 'tiiny/cogito-mini', on: true });
     if (!keep.kept.includes('tiiny/cogito-mini')) throw new Error('keep did not stick');
     ok('setPolicy + keep', 'policy=all, kept=cogito-mini, persisted through the bridge');
 
@@ -160,11 +160,11 @@ function main() {
 
     // 4. single update through the bridge, to a real version bump on the device
     await ctl.send({ op: 'set_scenario', name: 'update_available' });
-    const up = await invoke('m3:care:update', { id: 'tiiny/cogito-mini' });
+    const up = await invoke('m3:device:update', { id: 'tiiny/cogito-mini' });
     if (!up.taskId) throw new Error('update returned no taskId');
     await waitUntil('update task to finish', 40000,
       async () => {
-        const s = await invoke('m3:care:state');
+        const s = await invoke('m3:device:state');
         const t = s.tasks.find((x) => x.id === up.taskId);
         return t && (t.state === 'done' || t.state === 'failed');
       });
@@ -176,7 +176,7 @@ function main() {
 
     // 5. power cut mid-download: the journal survives the reboot and the
     //    update resumes from the download step after the outage closes.
-    await invoke('m3:care:update', { id: 'tiiny/general-7b' });
+    await invoke('m3:device:update', { id: 'tiiny/general-7b' });
     await sleep(6000); // 3 s unload skipped (not loaded) → mid 6 s download
     await ctl.send({ op: 'cut' });
     await waitUntil('reach to go unreachable again', 40000,
@@ -199,7 +199,7 @@ function main() {
     await waitUntil('engine to see the npu_full state', 15000,
       () => care.state().running.length === 3);
     let refused = null;
-    try { await invoke('m3:care:load', { id: 'tiiny/general-7b' }); }
+    try { await invoke('m3:device:load', { id: 'tiiny/general-7b' }); }
     catch (e) { refused = String(e.message || e); }
     if (!refused) throw new Error('general-7b loaded although it does not fit (95% NPU used)');
     if (!/insufficient NPU/i.test(refused))
@@ -209,11 +209,11 @@ function main() {
     ok('fit refusal', refused.slice(0, 80));
 
     // 7. ac power + usage through the bridge
-    const ac = await invoke('m3:care:setAcPower', { on: true });
+    const ac = await invoke('m3:device:setAcPower', { on: true });
     if (ac.acPower !== true) throw new Error('setAcPower returned ' + JSON.stringify(ac));
-    const st7 = await invoke('m3:care:state');
+    const st7 = await invoke('m3:device:state');
     if (!st7.acPower) throw new Error('state does not reflect ac power');
-    const usage = await invoke('m3:care:usage', {});
+    const usage = await invoke('m3:device:usage', {});
     if (!usage.weekStart || !usage.days || !usage.readAt)
       throw new Error('usage shape wrong: ' + JSON.stringify(usage).slice(0, 120));
     ok('ac_power + usage', 'acPower=true; usage week ' + usage.weekStart);
@@ -221,14 +221,14 @@ function main() {
     // 8. updateAll: a fresh scenario, both updatable models queued one at a time
     await ctl.send({ op: 'set_scenario', name: 'update_available' });
     await waitUntil('engine to see updates pending', 15000, async () => {
-      const ms = await invoke('m3:care:models');
+      const ms = await invoke('m3:device:models');
       return ms.models.filter((m) => m.need_update).length === 2;
     });
-    const all = await invoke('m3:care:updateAll', {});
+    const all = await invoke('m3:device:updateAll', {});
     if (!Array.isArray(all.taskIds) || all.taskIds.length !== 2)
       throw new Error('updateAll returned ' + JSON.stringify(all));
     await waitUntil('updateAll queue to drain', 90000, async () => {
-      const s = await invoke('m3:care:state');
+      const s = await invoke('m3:device:state');
       return all.taskIds.every((id) => {
         const t = s.tasks.find((x) => x.id === id);
         return t && t.state === 'done';
@@ -242,7 +242,7 @@ function main() {
     ok('updateAll', 'two models updated one at a time to 1.4.0 / 2.1.0');
 
     // 9. the log, the files on disk, and the push channel
-    const log = await invoke('m3:care:log', { since: 0 });
+    const log = await invoke('m3:device:log', { since: 0 });
     const kinds = new Set(log.entries.map((e) => e.event));
     for (const k of ['loaded', 'restored', 'updated', 'update-all', 'update-resumed', 'outage'])
       if (!kinds.has(k)) throw new Error('no "' + k + '" event in the care log: ' + [...kinds]);
@@ -254,17 +254,17 @@ function main() {
 
     const pushes = await win.webContents.executeJavaScript('window.__pushes');
     if (pushes.length < 5)
-      throw new Error('renderer received only ' + pushes.length + ' m3:care:changed pushes');
+      throw new Error('renderer received only ' + pushes.length + ' m3:device:changed pushes');
     if (pushes.some((s) => typeof s !== 'string'))
       throw new Error('a push payload was not a CareState');
-    ok('m3:care:changed push', pushes.length + ' CareState pushes reached the renderer');
+    ok('m3:device:changed push', pushes.length + ' CareState pushes reached the renderer');
 
     const guard = await win.webContents.executeJavaScript(
-      `(function(){ try { window.m3.on('m3:care:state', () => {}); return 'accepted'; }
+      `(function(){ try { window.m3.on('m3:device:state', () => {}); return 'accepted'; }
          catch (e) { return 'rejected: ' + e.message; } })()`);
     if (!String(guard).startsWith('rejected'))
       throw new Error('preload accepted a non-whitelisted channel: ' + guard);
-    ok('preload guard', 'window.m3.on refuses channels other than m3:care:changed');
+    ok('preload guard', 'window.m3.on refuses channels other than m3:device:changed');
 
     console.log('E2E ALL OK');
     ctl.stop();

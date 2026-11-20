@@ -1,8 +1,8 @@
 /* M3 Device — data layer: the only place that talks to the main process.
  *
  * Polls the existing device IPC (m3:sysstatus + m3:npustatus + m3:store) and
- * subscribes to the m3:care:* contract channels, then republishes on M3.bus so
- * views stay dumb. Every m3:care:* call fails soft: the engine may be absent
+ * subscribes to the m3:device:* contract channels, then republishes on M3.bus so
+ * views stay dumb. Every m3:device:* call fails soft: the engine may be absent
  * (m3_care.js is not wired yet), and when it is we emit nothing and the views
  * show their "not available" state. No fake data is ever produced here.
  */
@@ -10,7 +10,7 @@ window.M3 = window.M3 || {};
 M3.data = (function () {
   var h = M3.h;
   var timers = [];
-  var careOk = false; // did any m3:care:* channel answer at least once?
+  var careOk = false; // did any m3:device:* channel answer at least once?
 
   function invoke(ch, args) {
     if (!window.m3 || !window.m3.invoke) return Promise.reject(new Error('ipc unavailable'));
@@ -49,10 +49,10 @@ M3.data = (function () {
 
   /* ---- care state (the single source for the strip + Status + Power) ---- */
   function pollCare() {
-    care('m3:care:state').then(function (s) { if (s) M3.bus.emit('care', s); });
+    care('m3:device:state').then(function (s) { if (s) M3.bus.emit('care', s); });
   }
   function pollLog() {
-    care('m3:care:log').then(function (l) { if (l) M3.bus.emit('log', l); });
+    care('m3:device:log').then(function (l) { if (l) M3.bus.emit('log', l); });
   }
 
   /* ---- header ---- */
@@ -75,8 +75,8 @@ M3.data = (function () {
     timers.push(setInterval(pollCare, 5000));   // contract section 2.5: every 5 s
     timers.push(setInterval(pollLog, 15000));
     timers.push(setInterval(pollStore, 60000));
-    on('m3:care:state', onCare);               // main may push, not only be polled
-    on('m3:care:changed', pollCare);
+    on('m3:device:state', onCare);               // main may push, not only be polled
+    on('m3:device:changed', pollCare);
     M3.bus.on('care', renderHeader);
     M3.bus.on('tab', function (id) { if (id === 'tab-status') { pollMetrics(); pollCare(); } });
     M3.bus.on('readnow', pollCare);

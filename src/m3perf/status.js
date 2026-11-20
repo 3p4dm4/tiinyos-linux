@@ -4,11 +4,11 @@
  *                + m3:npustatus IPC (works without the care engine).
  *   · Right now — In memory (models on the NPU, with their current activity) and
  *                Tasks (what the device and this PC are working on), from
- *                m3:care:state (+ the p8800 in-memory list for model type).
- *   · Activity log — m3:care:log (PC-side journal, 7 days).
+ *                m3:device:state (+ the p8800 in-memory list for model type).
+ *   · Activity log — m3:device:log (PC-side journal, 7 days).
  *   · Benchmark runs — this session's runs (M3.bench), last 9.
  *
- * Everything m3:care:* fails soft: if the engine is absent the In-memory/Tasks/
+ * Everything m3:device:* fails soft: if the engine is absent the In-memory/Tasks/
  * log sections say so and the KPI row keeps working. All DOM is built with
  * createElement (no innerHTML of model data): names can't break layout or the
  * CSP, and the design checker only sees real tags.
@@ -295,8 +295,8 @@ M3.status = (function () {
   function stopModel(care, id) {
     if (!care) return;
     var task = (care.tasks || []).find(function (x) { return (x.kind === 'restore' || x.kind === 'update' || x.kind === 'download') && x.label === id; });
-    if (task) invoke('m3:care:stopTask', { taskId: task.id });
-    else invoke('m3:care:unload', { id: id });
+    if (task) invoke('m3:device:stopTask', { taskId: task.id });
+    else invoke('m3:device:unload', { id: id });
   }
   function invoke(ch, args) {
     if (!window.m3 || !window.m3.invoke) return;
@@ -338,7 +338,7 @@ M3.status = (function () {
       var verb = t.kind === 'benchmark' ? 'Cancel' : (t.kind === 'download' ? 'Pause' : 'Stop');
       var b = el('button', null, verb); b.type = 'button';
       if (t.state !== 'running' && t.state !== 'waiting') b.disabled = true;
-      b.addEventListener('click', function () { invoke('m3:care:stopTask', { taskId: t.id }); });
+      b.addEventListener('click', function () { invoke('m3:device:stopTask', { taskId: t.id }); });
       act.appendChild(b);
       if (t.kind === 'restore') {
         var dt = el('button', null, 'Details'); dt.type = 'button';
