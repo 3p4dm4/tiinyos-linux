@@ -74,7 +74,11 @@ update_title, update_desc` plus `kept: bool` and `inMemory: bool` added by the e
 - Power: `GET /api/v1/sys/ac_power/` → `{"status","ac_power"}`; `POST` `{"switch":0|1}` (POST: docs only).
 - Updates: `DELETE /api/v1/models/{id}`, `POST /api/v1/models/{id}/download` (docs only, untested);
   a download is assumed NOT to survive a device reboot: after an outage the journal restarts it.
-- Usage: `GET /api/v1/statistics/week_usage?start_date=YYYY-MM-DD`, `…/app_week_usage?start_date=…`.
+- Usage: `GET /api/v1/statistics/week_usage?start_date=YYYY-MM-DD` → dates at the top level, then
+  model id → `{prompt_tokens, completion_tokens, total_tokens, request_count}`; `…/app_week_usage?start_date=…`
+  → app name at the top level → `{total_tokens, models: {id: tokens}}`, apps `TiinyOS` (the app sends
+  `X-App-Id: TiinyOS`) and `default` (requests without that header: agents, other API clients)
+  (observed on a device 2026-11-20). The engine maps them to the IPC names above.
 - No uptime is exposed: an **outage** = the device stopped answering for more than 15 s and answered
   again. The device may bring a model back by itself after boot; restore only loads what is missing
   and never unloads anything.

@@ -245,3 +245,8 @@ test('useTags derives the Use pills from type + capabilities', () => {
   // nothing recognised -> raw type, lowercased
   assert.deepEqual(H.useTags({ type: 'OCR' }), ['ocr']);
 });
+
+test('appLabel: "default" is shown as API clients, other names unchanged', () => {
+  assert.equal(H.appLabel('default'), 'API clients (default)');
+  assert.equal(H.appLabel('TiinyOS'), 'TiinyOS');
+});

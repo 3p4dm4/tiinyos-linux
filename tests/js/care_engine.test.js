@@ -284,7 +284,7 @@ test('ac_power: get reflects the device, set posts and re-reads', async () => {
   ctl.stop();
 });
 
-test('usage: week_usage and app_week_usage shapes pass through (weekStart is a Monday)', async () => {
+test('usage: device counters become the contract shape, apps included (weekStart is a Monday)', async () => {
   const ctl = await spawnCtl('normal');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'care-e8-')); dirs.push(dir);
   const eng = freshEngines(ctl.base, dir);
@@ -303,10 +303,18 @@ test('usage: week_usage and app_week_usage shapes pass through (weekStart is a M
     for (const k of ['prompt', 'completion', 'total', 'requests'])
       assert.equal(typeof firstDay[mid][k], 'number');
 
+  // device names (prompt_tokens…) become the contract names, values kept:
+  // the fake's first model on the first day has prompt 1000 / completion 500
+  const first = firstDay[Object.keys(firstDay).sort()[0]];
+  assert.deepEqual(first, { prompt: 1000, completion: 500, total: 1500, requests: 1 });
+
+  // apps come with the same call (contract) and as total, not total_tokens
+  assert.ok(u.apps.TiinyOS && u.apps.default);
+  assert.equal(typeof u.apps.TiinyOS.total, 'number');
+  assert.ok(u.apps.TiinyOS.total > 0);
+  assert.ok(Object.keys(u.apps.TiinyOS.models).length >= 1);
   const a = await eng.care.appUsage(monday);
-  assert.ok(a.apps.TiinyOS && a.apps.default);
-  assert.equal(typeof a.apps.TiinyOS.total_tokens, 'number');
-  assert.ok(Object.keys(a.apps.TiinyOS.models).length >= 1);
+  assert.deepEqual(a.apps, u.apps);
   ctl.stop();
 });
 

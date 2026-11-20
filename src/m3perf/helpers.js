@@ -238,6 +238,10 @@
     }).sort(function (x, y) { return y.total - x.total; });
   }
 
+  // The TiinyOS app sends "X-App-Id: TiinyOS"; requests without that header
+  // (agents and other API clients) are grouped by the device as "default".
+  function appLabel(app) { return app === 'default' ? 'API clients (default)' : app; }
+
   /* ---------- chart series slots (identity, never rank) ----------
    * Fixed order = first time a model is seen in usage; slot 1..8 map to the
    * --series-1..8 tokens. A 9th and later model folds into "Other". */
@@ -346,7 +350,7 @@
     fmtDur: fmtDur, fmtDurApprox: fmtDurApprox, ago: ago,
     addDays: addDays, mondayOf: mondayOf, weekDates: weekDates, weekRange: weekRange,
     usageTotals: usageTotals, usageByModel: usageByModel, usagePerDay: usagePerDay,
-    busiestDay: busiestDay, usageByApp: usageByApp,
+    busiestDay: busiestDay, usageByApp: usageByApp, appLabel: appLabel,
     seriesSlots: seriesSlots, shortName: shortName, useTags: useTags,
     stripReach: stripReach, requestsLine: requestsLine, topTask: topTask, taskLine: taskLine,
   };

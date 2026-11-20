@@ -156,7 +156,7 @@ class TestEndpoints(Base):
         first = sorted(body)[0]
         self.assertEqual(first, "2026-11-16")
         for model, t in body[first].items():
-            for k in ("prompt", "completion", "total", "requests"):
+            for k in ("prompt_tokens", "completion_tokens", "total_tokens", "request_count"):  # device names
                 self.assertIn(k, t)
 
     def test_app_week_usage(self):

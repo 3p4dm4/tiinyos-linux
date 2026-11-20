@@ -368,10 +368,11 @@ class FakePocket:
             day = {}
             for j, mid in enumerate(ids):
                 base = 1000 * (i + 1) * (j + 1)
-                day[mid] = {"prompt": base, "completion": base // 2,
-                            "total": base * 3 // 2, "requests": i * 3 + j + 1}
+                day[mid] = {"prompt_tokens": base, "completion_tokens": base // 2,
+                            "total_tokens": base * 3 // 2, "request_count": i * 3 + j + 1}
             days[d] = day
-        return days  # the device puts the dates at the top level (observed 2026-11-19)
+        # dates at the top level (observed 2026-11-19), the device's field names (2026-11-20)
+        return days
 
     def _app_usage(self, start_date):
         ids = sorted(m["id"] for m in self.models.values() if m["installed"]) or ["tiiny/cogito-mini"]

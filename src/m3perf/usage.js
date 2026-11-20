@@ -76,7 +76,7 @@ M3.usage = (function () {
 
     var ba = el('section');
     var ah = el('div', 'sec-head'); var a2 = el('h2'); a2.id = 'h-byapp'; a2.textContent = 'By app'; ah.appendChild(a2);
-    ah.appendChild(el('span', 'note', 'the device reports totals per app, not per day · "default" = requests that name no app'));
+    ah.appendChild(el('span', 'note', 'the device reports totals per app, not per day · the TiinyOS app names itself (X-App-Id); API clients = requests without that header, such as agents'));
     ba.appendChild(ah);
     var bat = el('table'); bat.setAttribute('aria-labelledby', 'h-byapp');
     bat.appendChild(el('thead')); bat.appendChild(el('tbody')); bat.appendChild(el('tfoot'));
@@ -214,7 +214,7 @@ M3.usage = (function () {
     // rows
     apps.forEach(function (a) {
       var r = document.createElement('tr');
-      r.appendChild(el('td', null, a.app));
+      r.appendChild(el('td', null, h.appLabel(a.app)));
       r.appendChild(el('td', 'right num', C.fmtInt(a.total)));
       r.appendChild(el('td', 'right num', h.pct(a.share * 100)));
       cols.forEach(function (m) { r.appendChild(el('td', 'right num', C.fmtInt((a.models && a.models[m.id]) || 0))); });

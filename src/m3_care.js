@@ -542,17 +542,52 @@ const mondayOf = (d = new Date()) => {
   return x.toISOString().slice(0, 10);
 };
 
-const usage = async (weekStart = mondayOf()) => ({
-  weekStart,
-  days: await jget(`${BASE}/api/v1/statistics/week_usage?start_date=${weekStart}`, 15000),
-  readAt: Date.now(),
-});
+// The device names the per-model counters prompt_tokens / completion_tokens /
+// total_tokens / request_count and the per-app one total_tokens (observed
+// 2026-11-20); the contract (and the window) use prompt / completion / total /
+// requests. Both spellings are accepted so a firmware rename does not zero the view.
+const num = (...v) => { for (const x of v) if (typeof x === 'number') return x; return 0; };
+function normDays(raw) {
+  const days = {};
+  for (const [d, models] of Object.entries(raw || {})) {
+    if (!models || typeof models !== 'object') continue;
+    days[d] = {};
+    for (const [id, u] of Object.entries(models)) {
+      const o = u || {};
+      days[d][id] = {
+        prompt: num(o.prompt_tokens, o.prompt),
+        completion: num(o.completion_tokens, o.completion),
+        total: num(o.total_tokens, o.total),
+        requests: num(o.request_count, o.requests),
+      };
+    }
+  }
+  return days;
+}
+function normApps(raw) {
+  const apps = {};
+  for (const [app, o] of Object.entries(raw || {})) {
+    if (!o || typeof o !== 'object') continue;
+    apps[app] = { total: num(o.total_tokens, o.total), models: o.models || {} };
+  }
+  return apps;
+}
 
 const appUsage = async (weekStart = mondayOf()) => ({
   weekStart,
-  apps: await jget(`${BASE}/api/v1/statistics/app_week_usage?start_date=${weekStart}`, 15000),
+  apps: normApps(await jget(`${BASE}/api/v1/statistics/app_week_usage?start_date=${weekStart}`, 15000)),
   readAt: Date.now(),
 });
+
+// One call for the Usage tab (contract): days and apps. Apps are best effort:
+// a failing app_week_usage leaves apps null instead of hiding the days.
+const usage = async (weekStart = mondayOf()) => {
+  const [days, apps] = await Promise.all([
+    jget(`${BASE}/api/v1/statistics/week_usage?start_date=${weekStart}`, 15000),
+    appUsage(weekStart).then((a) => a.apps, () => null),
+  ]);
+  return { weekStart, days: normDays(days), apps, readAt: Date.now() };
+};
 
 /* ---------- tasks ---------- */
 
@@ -792,7 +827,7 @@ module.exports = {
   POLL_MS, OUTAGE_MS, STALE_MS,
   _S: S, _pollOnce: pollOnce, _startRestore: startRestore,
   _newTask: newTask, _stopTask: stopTask, _state: state, _reset, _claim: claim,
-  getAcPower, setAcPower, usage, appUsage, mondayOf, logEvent, markOwn,
+  getAcPower, setAcPower, usage, appUsage, normDays, normApps, mondayOf, logEvent, markOwn,
   currentTask, state, start, wire, installedModels,
   update, updateAll, maybeResume,
 };
