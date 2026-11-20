@@ -5,7 +5,7 @@
   const $ = (id) => document.getElementById(id);
   const hhmmss = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour12: false });
   const num = (n) => (typeof n === 'number' ? n.toLocaleString('en-GB') : '—');
-  // Model ids and names are device data: escape before any innerHTML (m3_music 5c03e34).
+  // Model ids and names are device data: escape before any innerHTML.
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
