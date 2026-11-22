@@ -7,7 +7,11 @@ wrapper runs a FakePocket (same flags: --scenario, --speed) on an ephemeral
 JSON command per line on stdin with one JSON line on stdout:
 
     {"op": "cut"}                                  power cut (socket closed)
-    {"op": "restore_power", "boot_models": [...]}  back on; downloads lost
+    {"op": "restore_power", "boot_models": [...], "locked": false}
+                                                   back on; downloads lost;
+                                                   locked=true -> /data locked
+    {"op": "lock"}                                 /data locked (a reboot)
+    {"op": "unlock_fault", "on": true}             unlocks answer "locked"
     {"op": "set_scenario", "name": "npu_full"}     reset to a scenario
     {"op": "scenario"}                             -> {"scenario": "..."}
     {"op": "state"}                                -> per-model ground truth
@@ -49,7 +53,14 @@ def main():
             fp.control.cut()
             reply = {"ok": True}
         elif op == "restore_power":
-            fp.control.restore_power(cmd.get("boot_models"))
+            fp.control.restore_power(cmd.get("boot_models"),
+                                     locked=cmd.get("locked") is True)
+            reply = {"ok": True}
+        elif op == "lock":
+            fp.control.lock()
+            reply = {"ok": True}
+        elif op == "unlock_fault":
+            fp.control.set_unlock_fault(cmd.get("on", True) is True)
             reply = {"ok": True}
         elif op == "set_scenario":
             reply = {"ok": True,
@@ -60,6 +71,7 @@ def main():
             with fp.lock:
                 fp._advance(fp.sim_now())
                 reply = {"ok": True, "ac_power": fp.ac_power,
+                         "data_state": fp.data_state,
                          "models": {m["id"]: {
                              "installed": m["installed"], "in_memory": m["in_memory"],
                              "status": m["status"], "progress": round(m["progress"], 1),

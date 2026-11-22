@@ -84,6 +84,39 @@ update_title, update_desc` plus `kept: bool` and `inMemory: bool` added by the e
   and never unloads anything.
 - `{id}` in paths is URL-encoded per segment; the `/` between owner and name stays a `/`.
 
+## Data lock and unlock (verified 2026-11-20/22, TiinyOS 0.1.39, unless marked)
+
+Not used by the Device window today (the TiinyOS app unlocks); written down for every client that
+must tell "locked" from "down" (the Omarchy plugin, scripts). Served by the fake: scenarios `locked`
+and `unlock_refused`, controls `lock()`, `set_unlock_fault()`, `restore_power(..., locked=True)`.
+
+- After **every** reboot `/data` (LUKS2, detached header) is locked. Until it is unlocked nginx
+  answers **502** with its HTML page on every endpoint except the three below, before any auth check.
+  So "502 everywhere" while `/v1/data/state` answers means locked, not down.
+- `GET /v1/data/state` — no Bearer, works while locked:
+  - locked: `{"boot_state":"ready","credential_state":"password_or_auth_key_required","data_state":"locked","format":"luks2-detached-header","requires_unlock":true,"serivice_status":"pending","supports_recovery":true}`
+  - unlocked: `{"boot_state":"ready","data_state":"unlocked","key_arch":"vault","requires_unlock":false,"serivice_status":"ok"}`
+  - `credential_state`, `format` and `supports_recovery` are present only while locked.
+  - the key is spelled `serivice_status` by the device; read `serivice_status || service_status`.
+    Ready = `data_state == "unlocked"` and status `ok` (the app's own rule).
+  - `unlocking` exists (the vendor app and TTt poll for it); its exact shape is *assumed*.
+- `POST /api/v1/account/auth` `{"password", "device_id"?}` — no Bearer → `auth_key` (plus
+  `device_id`, `user_info`). Wrong password: answer **not captured** (the fake's 401
+  `password_wrong` is *assumed*).
+- `POST /api/v1/account/unlock_with_auth_key` `{"auth_key"}` — no Bearer, the auth key alone
+  unlocks (no decryption password). Normal: `data_state: "unlocking"`, then poll `/v1/data/state`.
+  An auth key survives reboots: the app unlocks with its stored key after each one.
+  After unlock the device may bring models back by itself (see "outage" above); the fake's locked
+  scenarios keep `tiiny/cogito-mini` in memory for that reason.
+- **Refused unlock (fault, 2026-11-20 → 22):** `{"status":"ok","data_state":"locked",…}` returned
+  immediately and the state never moves, for any key and any client. Cause: an unconfirmed A/B OS
+  boot fell back to the previous system, which cannot open the vault keys. Fixed only on the device
+  (vendor support kit). Classify it by **body + unchanged `data_state`**, not by response time.
+  Never auto-retry it.
+- `GET /api/v1/sys/device_info` (Bearer, needs `/data`) → `tiiny_os` is the OS version (0.1.39).
+- `POST /api/v1/connect` is a **session**: one client at a time, a second one drops the first. A
+  client that only wants state must not call it.
+
 ## PC-side state
 
 `~/.config/tiinyos-linux/care.json` (policy, kept, last snapshot), `care-journal.json` (update steps,
