@@ -34,9 +34,21 @@ facts"; untested-on-device shapes are marked with ``# assumed``):
     POST   /api/v1/sys/ac_power/                       body {"switch":0|1}
     GET    /api/v1/statistics/week_usage?start_date=   -> {date:{id:{...}}} (days at the top, as the device)
     GET    /api/v1/statistics/app_week_usage?start_date= -> {app:{total_tokens,models:{id:n}}} (as the device)
+    GET    /api/v1/sys/device_info                     -> {tiiny_os, device_model_name, ...}
+    GET    /api/v1/sys/performance                     -> {summary:{...}, endpoints:[...]}
 
-Auth mirrors the device: every endpoint requires ``Authorization: Bearer <non-
-empty>`` or it answers 401 ``{"detail":"Authorization header is missing"}``.
+Data lock (contract section "Data lock and unlock"). These three need no
+Bearer and answer even while /data is locked:
+
+    GET    /v1/data/state                              -> {data_state, serivice_status, ...}
+    POST   /api/v1/account/auth                        body {"password"} -> {auth_key, ...}
+    POST   /api/v1/account/unlock_with_auth_key        body {"auth_key"} -> {data_state, ...}
+
+While ``data_state`` is not ``unlocked`` every other endpoint answers 502 with
+nginx's HTML page, before any auth check, as the device does.
+
+Auth mirrors the device: every other endpoint requires ``Authorization: Bearer
+<non-empty>`` or it answers 401 ``{"detail":"Authorization header is missing"}``.
 
 Model ids contain a ``/`` (``owner/name``); both the raw and the percent-
 encoded forms are accepted in every path.
@@ -53,6 +65,15 @@ Scenarios (also switchable at runtime via ``fp.control.set_scenario``):
     npu_full         NPU budget nearly full -> a new load does not fit
     power_cut        normal state; use control.cut() / control.restore_power()
     update_available two models with need_update and realistic update_desc
+    locked           booted with /data locked; the right password unlocks it
+    unlock_refused   booted locked; unlock_with_auth_key answers "locked" at
+                     once and nothing changes (the 2026-11-20 fault, fixed on
+                     the device by the vendor's support kit)
+
+Data lock knobs (``control``): ``lock()`` puts /data back to locked (a reboot
+as the PC sees it), ``set_unlock_fault(True)`` makes unlocks refused,
+``restore_power(boot_models, locked=True)`` comes back locked like the device.
+The fake's password is ``FAKE_PASSWORD``; any other password is refused.
 
 ``power_cut`` behaviour (available in every scenario, driven by ``control``):
     control.cut()                  server socket closes -> connection refused
@@ -70,6 +91,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote
 
 NPU_BUDGET = 100.0
+
+# Data lock. Shapes verified on a device (TiinyOS 0.1.39, 2026-11-20/22) unless
+# marked ``# assumed``. The device really spells it "serivice_status".
+FAKE_PASSWORD = "fake-pocket-password"
+FAKE_DEVICE_ID = "FAKE-DEVICE-0001"
+_USER_INFO = {"user_name": "fake-user", "avatar_id": 1, "device_name": "Fake Tiiny"}
+_STATE_LOCKED = {"boot_state": "ready", "credential_state": "password_or_auth_key_required",
+                 "data_state": "locked", "format": "luks2-detached-header",
+                 "requires_unlock": True, "serivice_status": "pending",
+                 "supports_recovery": True}
+_STATE_UNLOCKING = {"boot_state": "ready", "data_state": "unlocking",  # assumed
+                    "requires_unlock": False, "serivice_status": "pending"}
+_STATE_UNLOCKED = {"boot_state": "ready", "data_state": "unlocked", "key_arch": "vault",
+                   "requires_unlock": False, "serivice_status": "ok"}
+_HTML_502 = (b"<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n"
+             b"<center><h1>502 Bad Gateway</h1></center>\r\n"
+             b"<hr><center>nginx/1.22.1</center>\r\n</body>\r\n</html>\r\n")
+_DEVICE_INFO = {"device_model_name": "Tiiny z01", "device_model_date": "01/2026",
+                "device_name": "Fake Tiiny", "device_model_version": "20260101",
+                "tiiny_os": "0.1.39", "cpu": "ARMv9.2", "gpu": "G720",
+                "dnpu": "160 BF16 TOPs", "ram": "80 GB (32 GB on SoC, 48 GB on dNPU)",
+                "storage": "1 TB", "network": "Wi-Fi, Bluetooth", "version": "0.1.30",
+                "setting": {}}
+_LOCKED_SCENARIOS = ("locked", "unlock_refused")
 
 # Full catalog: the set of models the device knows about. ``installed`` state is
 # layered on top per model by the scenario. ``new_*`` is what a download brings.
@@ -159,7 +204,7 @@ def _state_for(scenario):
             models[mid]["update_title"] = spec["update_title"]
             models[mid]["update_desc"] = spec["update_desc"]
         return models, 3.0, 6.0
-    if scenario == "power_cut":
+    if scenario in ("power_cut",) + _LOCKED_SCENARIOS:
         models["tiiny/cogito-mini"]["in_memory"] = True
         models["tiiny/cogito-mini"]["status"] = "loaded"
         models["tiiny/cogito-mini"]["progress"] = 100.0
@@ -185,9 +230,20 @@ class _Control:
         """Power cut: the server stops answering (connection refused)."""
         self._p.cut()
 
-    def restore_power(self, boot_models=None):
-        """Power back on with only ``boot_models`` in memory; downloads lost."""
-        self._p.restore_power(boot_models)
+    def restore_power(self, boot_models=None, locked=False):
+        """Power back on with only ``boot_models`` in memory; downloads lost.
+        ``locked=True`` comes back with /data locked, as the real device does."""
+        self._p.restore_power(boot_models, locked=locked)
+
+    def lock(self):
+        """/data back to locked, as after a device reboot."""
+        with self._p.lock:
+            self._p._lock_data()
+
+    def set_unlock_fault(self, on=True):
+        """While on, unlock_with_auth_key answers "locked" and changes nothing."""
+        with self._p.lock:
+            self._p.unlock_fault = bool(on)
 
     def scenario(self):
         return self._p.scenario
@@ -211,6 +267,11 @@ class FakePocket:
         self.models = {}
         self._load_seconds = 3.0
         self._download_seconds = 6.0
+        self._unlock_seconds = 2.0  # simulated; assumed, not measured on a device
+        self.data_state = "unlocked"
+        self.unlock_fault = False
+        self.unlock_deadline = None
+        self.auth_keys = set()
         self._load_catalog()
 
     # -- catalog / scenario --------------------------------------------------
@@ -221,12 +282,26 @@ class FakePocket:
         self.models = models
         self._load_seconds = load_s
         self._download_seconds = download_s
+        self.data_state = "locked" if self.scenario in _LOCKED_SCENARIOS else "unlocked"
+        self.unlock_fault = self.scenario == "unlock_refused"
+        self.unlock_deadline = None
+        self.auth_keys = set()
+
+    def _lock_data(self):
+        # Issued auth keys survive: the real app unlocks with its stored key
+        # after every reboot (TiinyOS logs on linux64, 2026-11-19).
+        self.data_state = "locked"
+        self.unlock_deadline = None
 
     def sim_now(self):
         return (time.monotonic() - self._t0) * self.speed
 
     def _advance(self, now):
         """Move lazy state to where the simulated clock says it belongs."""
+        if self.data_state == "unlocking" and self.unlock_deadline is not None:
+            if now >= self.unlock_deadline:
+                self.data_state = "unlocked"
+                self.unlock_deadline = None
         for m in self.models.values():
             if m["status"] == "loading" and m.get("load_deadline") is not None:
                 if now >= m["load_deadline"]:
@@ -294,10 +369,12 @@ class FakePocket:
             self.powered = False
             self._stop_serving()
 
-    def restore_power(self, boot_models=None):
+    def restore_power(self, boot_models=None, locked=False):
         boot = set(boot_models or [])
         with self.lock:
             self.powered = True
+            if locked:
+                self._lock_data()
             for m in self.models.values():
                 if m["status"] == "downloading":
                     # in-progress download lost: revert to the state before it began
@@ -314,6 +391,41 @@ class FakePocket:
                 m["status"] = "loaded" if in_mem else "stopped"
                 m["progress"] = 100.0 if in_mem else 0.0
             self._start_serving()
+
+    # -- data lock (assume caller holds the lock) ----------------------------
+    def _data_state_payload(self):
+        return dict({"locked": _STATE_LOCKED, "unlocking": _STATE_UNLOCKING,
+                     "unlocked": _STATE_UNLOCKED}[self.data_state])
+
+    def _account_reply(self, **extra):
+        reply = {"status": "ok", "device_id": FAKE_DEVICE_ID, "user_info": dict(_USER_INFO)}
+        reply.update(extra)
+        return reply
+
+    def _auth(self, body):
+        if body.get("password") != FAKE_PASSWORD:
+            # assumed: the device's answer to a wrong password was never captured
+            return 401, {"status": "failed", "error": "password_wrong"}
+        key = "fake-auth-key-%d" % (len(self.auth_keys) + 1)
+        self.auth_keys.add(key)
+        return 200, self._account_reply(auth_key=key)
+
+    def _unlock(self, body):
+        if body.get("auth_key") not in self.auth_keys:
+            # assumed: never captured with an unknown key
+            return 401, {"status": "not_auth", "error_code": 190002,
+                         "data_state": self.data_state}
+        if self.data_state == "locked" and not self.unlock_fault:
+            self.data_state = "unlocking"
+            self.unlock_deadline = self.sim_now() + self._unlock_seconds
+        # the fault: "ok" with data_state "locked", immediately (verified 2026-11-20)
+        return 200, self._account_reply(data_state=self.data_state)
+
+    def _performance(self):
+        return {"summary": {"total_requests": 0, "total_errors": 0, "error_rate": 0.0,
+                            "avg_ms": 0.0, "p50_ms": 0.0, "p99_ms": 0.0,
+                            "last_updated_at": None},
+                "endpoints": []}
 
     # -- pure view builders (assume caller holds the lock) -------------------
     def _busy(self):
@@ -556,16 +668,41 @@ class _Handler(BaseHTTPRequestHandler):
     def _path(self):
         return unquote(self.path.split("?", 1)[0])
 
+    def _send_html(self, code, body):
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def _handle(self, method):
         p = self._pocket()
-        if not self._authed():
-            return self._send(401, {"detail": "Authorization header is missing"})
         path = self._path()
         query = self.path.split("?", 1)[1] if "?" in self.path else ""
         q = parse_qs(query)
+        # Read the body of the no-Bearer POSTs before taking the lock, so a slow
+        # client cannot hold every other request behind it.
+        account_body = (self._read_json() if method == "POST" and path in (
+            "/api/v1/account/auth", "/api/v1/account/unlock_with_auth_key") else None)
 
         with p.lock:
             p._advance(p.sim_now())
+            # The auth service answers without a Bearer and while /data is locked.
+            if method == "GET" and path in ("/v1/data/state", "/v1/data/state/"):
+                return self._send(200, p._data_state_payload())
+            if method == "POST" and path == "/api/v1/account/auth":
+                return self._send(*p._auth(account_body))
+            if method == "POST" and path == "/api/v1/account/unlock_with_auth_key":
+                return self._send(*p._unlock(account_body))
+            # Everything else lives on /data: down (502 from nginx) until unlocked.
+            if p.data_state != "unlocked":
+                return self._send_html(502, _HTML_502)
+            if not self._authed():
+                return self._send(401, {"detail": "Authorization header is missing"})
             return self._route(method, path, q)
 
     def _route(self, method, path, q):
@@ -582,6 +719,10 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(200, p._npu_status())
         if method == "GET" and path == "/api/v1/sys/status":
             return self._send(200, p._sys_status())
+        if method == "GET" and path == "/api/v1/sys/device_info":
+            return self._send(200, dict(_DEVICE_INFO))
+        if method == "GET" and path == "/api/v1/sys/performance":
+            return self._send(200, p._performance())
         if method == "GET" and path in ("/api/v1/sys/ac_power", "/api/v1/sys/ac_power/"):
             return self._send(200, {"status": "ok", "ac_power": p.ac_power})
         if method == "GET" and path == "/api/v1/statistics/week_usage":
@@ -647,7 +788,8 @@ def main():
     ap = argparse.ArgumentParser(description="Fake Tiiny Pocket device for tests")
     ap.add_argument("--port", type=int, default=0, help="port to bind (0 = ephemeral)")
     ap.add_argument("--scenario", default="normal",
-                    help="normal|slow_load|npu_full|power_cut|update_available")
+                    help="normal|slow_load|npu_full|power_cut|update_available"
+                         "|locked|unlock_refused")
     ap.add_argument("--speed", type=float, default=1.0, help="simulated time speed factor")
     args = ap.parse_args()
     fp = FakePocket(scenario=args.scenario, speed=args.speed)

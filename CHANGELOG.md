@@ -9,6 +9,12 @@ Every pull request that changes code adds a line under **Unreleased** (CI checks
 
 ## [Unreleased]
 
+### Added
+- Fake device: data lock. `/v1/data/state`, `account/auth` and `unlock_with_auth_key` (no Bearer),
+  502 on everything else while locked, scenarios `locked` and `unlock_refused`, controls
+  `lock()` / `set_unlock_fault()` / `restore_power(locked=True)`, `sys/device_info` and
+  `sys/performance`. Contract: new section "Data lock and unlock" with the facts verified on a device.
+
 ## [0.4.0] — 2026-11-20
 
 Device care: the Performance window becomes the **Device** window, with an engine that keeps the
